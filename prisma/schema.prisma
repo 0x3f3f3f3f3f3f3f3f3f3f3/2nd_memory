@@ -1,0 +1,253 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tags       Tag[]
+  tasks      Task[]
+  notes      Note[]
+  inboxItems InboxItem[]
+  settings   Setting[]
+}
+
+model Tag {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  slug        String
+  color       String   @default("#6366f1")
+  icon        String?
+  description String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskTags TaskTag[]
+  noteTags NoteTag[]
+
+  @@unique([userId, slug])
+  @@index([userId])
+}
+
+enum TaskStatus {
+  INBOX
+  TODO
+  DOING
+  DONE
+  ARCHIVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id              String     @id @default(cuid())
+  userId          String
+  title           String
+  description     String?
+  status          TaskStatus @default(TODO)
+  priority        Priority   @default(MEDIUM)
+  startAt         DateTime?
+  dueAt           DateTime?
+  reminderAt      DateTime?
+  completedAt     DateTime?
+  estimateMinutes Int?
+  isPinned        Boolean    @default(false)
+  sortOrder       Int        @default(0)
+  sourceNoteId    String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  archivedAt      DateTime?
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskTags TaskTag[]
+  subTasks SubTask[]
+  noteTasks NoteTask[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([userId, dueAt])
+}
+
+model TaskTag {
+  taskId String
+  tagId  String
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+}
+
+model SubTask {
+  id        String   @id @default(cuid())
+  taskId    String
+  title     String
+  done      Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+enum NoteType {
+  ADVICE
+  DECISION
+  PERSON
+  LESSON
+  HEALTH
+  FINANCE
+  OTHER
+}
+
+enum Importance {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model Note {
+  id                 String     @id @default(cuid())
+  userId             String
+  title              String
+  slug               String
+  summary            String     @default("")
+  contentMd          String     @default("")
+  type               NoteType   @default(OTHER)
+  importance         Importance @default(MEDIUM)
+  isPinned           Boolean    @default(false)
+  nextReviewAt       DateTime?
+  lastReviewedAt     DateTime?
+  reviewIntervalDays Int?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  archivedAt         DateTime?
+  metadata           Json       @default("{}")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  noteTags   NoteTag[]
+  reviewLogs ReviewLog[]
+  noteTasks  NoteTask[]
+  linksFrom  NoteLink[]  @relation("fromNote")
+  linksTo    NoteLink[]  @relation("toNote")
+
+  @@unique([userId, slug])
+  @@index([userId])
+  @@index([userId, nextReviewAt])
+}
+
+model NoteTag {
+  noteId String
+  tagId  String
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, tagId])
+}
+
+model NoteTask {
+  noteId String
+  taskId String
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, taskId])
+}
+
+enum RelationType {
+  RELATED
+  CAUSED_BY
+  SUPPORTS
+  CONTRADICTS
+  REMINDS
+}
+
+model NoteLink {
+  id           String       @id @default(cuid())
+  fromNoteId   String
+  toNoteId     String
+  relationType RelationType @default(RELATED)
+
+  fromNote Note @relation("fromNote", fields: [fromNoteId], references: [id], onDelete: Cascade)
+  toNote   Note @relation("toNote", fields: [toNoteId], references: [id], onDelete: Cascade)
+
+  @@unique([fromNoteId, toNoteId])
+}
+
+enum ReviewRating {
+  FORGOT
+  VAGUE
+  REMEMBERED
+  EASY
+}
+
+model ReviewLog {
+  id               String       @id @default(cuid())
+  noteId           String
+  rating           ReviewRating
+  reviewedAt       DateTime     @default(now())
+  prevNextReviewAt DateTime?
+  nextNextReviewAt DateTime?
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+}
+
+enum ProcessType {
+  NONE
+  TASK
+  NOTE
+  BOTH
+}
+
+model InboxItem {
+  id          String      @id @default(cuid())
+  userId      String
+  content     String
+  capturedAt  DateTime    @default(now())
+  processedAt DateTime?
+  processType ProcessType @default(NONE)
+  metadata    Json        @default("{}")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, processedAt])
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  userId    String
+  key       String
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+  @@index([userId])
+}
