@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
   Inbox, Calendar, Sparkles, BookOpen, MoreHorizontal,
@@ -11,7 +11,6 @@ import { useI18n } from "@/contexts/locale-context"
 
 export function MobileNav() {
   const pathname = usePathname()
-  const router = useRouter()
   const { t, locale, setLocale } = useI18n()
   const [moreOpen, setMoreOpen] = useState(false)
 

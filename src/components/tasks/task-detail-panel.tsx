@@ -88,14 +88,13 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
   return (
     <div className={cn(
       "flex flex-col h-full rounded-3xl overflow-hidden",
-      "bg-[--muted]/50 dark:bg-[--muted]/30",
+      "bg-[var(--liquid-glass-bg-strong)]",
       "backdrop-filter backdrop-blur-2xl",
-      "border border-white/40 dark:border-white/[0.07]",
-      "shadow-[0_8px_40px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]",
-      "dark:shadow-[0_8px_40px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.04)]",
+      "border border-[var(--liquid-glass-border)]",
+      "shadow-[var(--liquid-glass-shadow)]",
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/20 dark:border-white/[0.05] flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--liquid-glass-border-soft)] flex-shrink-0">
         <span className="text-sm font-semibold text-[--foreground]/80">{t.taskDetail.editTitle}</span>
         <div className="flex items-center gap-1">
           {!confirmDelete ? (
@@ -118,7 +117,7 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
           )}
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[--muted-foreground] hover:text-[--foreground] hover:bg-white/40 dark:hover:bg-white/[0.06] transition-colors"
+            className="p-1.5 rounded-lg text-[--muted-foreground] hover:text-[--foreground] hover:bg-[var(--liquid-glass-bg-soft)] transition-colors"
             title={t.taskDetail.cancelBtn}
           >
             <X className="w-3.5 h-3.5" />
@@ -132,7 +131,7 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
         <Input
           value={title}
           onChange={e => setTitle(e.target.value)}
-          className="text-sm font-medium bg-white/50 dark:bg-white/[0.04]"
+          className="text-sm font-medium border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-input-bg)]"
           placeholder={t.tasks.titlePlaceholder}
         />
 
@@ -141,7 +140,7 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
           <div className="space-y-1">
             <Label className="text-xs text-[--muted-foreground]">{t.taskDetail.statusLabel}</Label>
             <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="h-8 text-xs bg-white/50 dark:bg-white/[0.04]">
+              <SelectTrigger className="h-8 text-xs border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-input-bg)]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -152,7 +151,7 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
           <div className="space-y-1">
             <Label className="text-xs text-[--muted-foreground]">{t.taskDetail.priorityLabel}</Label>
             <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger className="h-8 text-xs bg-white/50 dark:bg-white/[0.04]">
+              <SelectTrigger className="h-8 text-xs border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-input-bg)]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -172,7 +171,7 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
             type="datetime-local"
             value={dueAt}
             onChange={e => setDueAt(e.target.value)}
-            className="h-8 text-xs bg-white/50 dark:bg-white/[0.04]"
+            className="h-8 text-xs border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-input-bg)]"
           />
         </div>
 
@@ -186,7 +185,7 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
             onChange={e => setDescription(e.target.value)}
             rows={3}
             placeholder={t.taskDetail.notesPlaceholder}
-            className="text-sm bg-white/50 dark:bg-white/[0.04] resize-none"
+            className="text-sm border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-input-bg)] resize-none"
           />
         </div>
 
@@ -228,7 +227,13 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
             </Label>
             <div className="space-y-1">
               {task.subTasks.map(sub => (
-                <div key={sub.id} className={cn("flex items-center gap-2 text-xs px-2 py-1 rounded-lg bg-white/30 dark:bg-white/[0.03]", sub.done && "opacity-50")}>
+                <div
+                  key={sub.id}
+                  className={cn(
+                    "flex items-center gap-2 text-xs px-2 py-1 rounded-lg border border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-bg-soft)]",
+                    sub.done && "opacity-50"
+                  )}
+                >
                   <div className={cn("w-3 h-3 rounded border flex items-center justify-center flex-shrink-0", sub.done ? "bg-[--primary] border-[--primary] text-[--primary-foreground]" : "border-[--border]")}>
                     {sub.done && <span className="text-[8px]">✓</span>}
                   </div>
@@ -245,7 +250,7 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-white/20 dark:border-white/[0.05] flex-shrink-0">
+      <div className="px-4 py-3 border-t border-[var(--liquid-glass-border-soft)] flex-shrink-0">
         <Button
           className="w-full h-8 text-sm"
           disabled={isPending || !title.trim()}

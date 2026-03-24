@@ -4,7 +4,7 @@ import {
   format, startOfWeek, addDays, isSameDay,
   addWeeks, subWeeks, addMonths, subMonths,
   eachDayOfInterval, isToday, isTomorrow,
-  startOfDay, endOfDay, startOfMonth, endOfMonth,
+  startOfDay, startOfMonth, endOfMonth,
   endOfWeek,
 } from "date-fns"
 import { DayPicker, type DayProps } from "react-day-picker"
@@ -29,22 +29,27 @@ const P_DOT: Record<string, string> = {
   LOW: "bg-stone-300", MEDIUM: "bg-sky-400", HIGH: "bg-orange-400", URGENT: "bg-red-500",
 }
 
+type DdlTaskStatus = "TODO" | "DOING" | "DONE"
+
+function toDdlTaskStatus(status: TaskWithRelations["status"]): DdlTaskStatus {
+  if (status === "DOING" || status === "DONE") return status
+  return "TODO"
+}
+
 /* ── Small DDL row used in week/month cells ── */
 function DdlRow({
   task,
-  allTags,
   onSelectTask,
 }: {
   task: TaskWithRelations
-  allTags: Tag[]
   onSelectTask: (task: TaskWithRelations) => void
 }) {
-  const [localStatus, setLocalStatus] = useState(task.status)
+  const [localStatus, setLocalStatus] = useState<DdlTaskStatus>(toDdlTaskStatus(task.status))
 
   const handleCycle = (e: React.MouseEvent) => {
     e.stopPropagation()
-    const next = localStatus === "TODO" ? "DOING" : localStatus === "DOING" ? "DONE" : "TODO"
-    setLocalStatus(next as any)
+    const next: DdlTaskStatus = localStatus === "TODO" ? "DOING" : localStatus === "DOING" ? "DONE" : "TODO"
+    setLocalStatus(next)
     cycleTaskStatus(task.id, localStatus)
   }
 
@@ -82,10 +87,9 @@ function DdlRow({
 
 /* ── Week DDL view ── */
 function WeekDdlView({
-  tasks, allTags, weekDays, onSelectTask,
+  tasks, weekDays, onSelectTask,
 }: {
   tasks: TaskWithRelations[]
-  allTags: Tag[]
   weekDays: Date[]
   onSelectTask: (task: TaskWithRelations) => void
 }) {
@@ -96,11 +100,10 @@ function WeekDdlView({
   return (
     <div className={cn(
       "rounded-3xl overflow-hidden",
-      "bg-[--muted]/30 dark:bg-[--muted]/15",
+      "bg-[var(--liquid-glass-bg-soft)]",
       "backdrop-filter backdrop-blur-2xl",
-      "border border-white/40 dark:border-white/[0.07]",
-      "shadow-[0_8px_40px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]",
-      "dark:shadow-[0_8px_40px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.04)]",
+      "border border-[var(--liquid-glass-border-soft)]",
+      "shadow-[var(--liquid-glass-shadow)]",
     )}>
       <div className="grid grid-cols-1 md:grid-cols-7">
         {weekDays.map((day, i) => {
@@ -135,7 +138,7 @@ function WeekDdlView({
               </div>
               <div className="flex-1 space-y-0.5 overflow-hidden">
                 {ddls.map(task => (
-                  <DdlRow key={task.id} task={task} allTags={allTags} onSelectTask={onSelectTask} />
+                  <DdlRow key={task.id} task={task} onSelectTask={onSelectTask} />
                 ))}
               </div>
             </div>
@@ -148,10 +151,9 @@ function WeekDdlView({
 
 /* ── Month DDL cell ── */
 function MonthDdlCell({
-  day, modifiers, tasks, allTags, isMobile, onSelectTask,
+  day, modifiers, tasks, isMobile, onSelectTask,
 }: DayProps & {
   tasks: TaskWithRelations[]
-  allTags: Tag[]
   isMobile?: boolean
   onSelectTask: (task: TaskWithRelations) => void
 }) {
@@ -166,17 +168,17 @@ function MonthDdlCell({
       "relative flex flex-col overflow-hidden transition-all duration-200",
       isMobile ? "rounded-lg min-h-[50px] p-1" : "rounded-xl min-h-[80px] md:min-h-[100px] p-1.5",
       !today && !outside && [
-        "bg-white/55 dark:bg-white/[0.04]",
-        "border border-white/60 dark:border-white/[0.07]",
-        "shadow-[0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.7)]",
-        !isMobile && "hover:bg-white/75 dark:hover:bg-white/[0.07] cursor-pointer",
+        "bg-[var(--liquid-glass-bg)]",
+        "border border-[var(--liquid-glass-border)]",
+        "shadow-[var(--liquid-glass-shadow-soft)]",
+        !isMobile && "hover:bg-[var(--liquid-glass-hover-bg)] cursor-pointer",
       ],
       today && [
         "bg-[--primary]/10 dark:bg-[--primary]/15",
         "border border-[--primary]/25 dark:border-[--primary]/20",
         "shadow-[0_4px_16px_rgba(201,100,68,0.12),inset_0_1px_0_rgba(255,255,255,0.6)]",
       ],
-      outside && "bg-white/20 dark:bg-white/[0.015] border border-white/30 dark:border-white/[0.04]",
+      outside && "bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border-soft)] opacity-70",
     )}>
       <div className="flex justify-end mb-0.5">
         {today ? (
@@ -208,7 +210,7 @@ function MonthDdlCell({
       ) : (
         <div className="flex-1 space-y-px overflow-hidden">
           {ddls.slice(0, MAX).map(t => (
-            <DdlRow key={t.id} task={t} allTags={allTags} onSelectTask={onSelectTask} />
+            <DdlRow key={t.id} task={t} onSelectTask={onSelectTask} />
           ))}
           {ddls.length > MAX && (
             <button
@@ -250,7 +252,6 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
   const [panelVisible, setPanelVisible] = useState(false)
   const panelVisibleRef = useRef(false)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL")
   const [ddlFilter, setDdlFilter] = useState<DdlFilter>("ALL")
 
@@ -292,15 +293,13 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
     // Slide out, then unmount after transition completes
     setPanelVisible(false)
     panelVisibleRef.current = false
-    closeTimerRef.current = setTimeout(() => setSelectedTask(null), 450)
+    closeTimerRef.current = setTimeout(() => {
+      setSelectedTask(null)
+      closeTimerRef.current = null
+    }, 450)
   }, [])
 
   const onSelectTask = useCallback((task: TaskWithRelations) => {
-    // Toggle: clicking the already-open task closes the panel
-    if (panelVisibleRef.current && selectedTask?.id === task.id) {
-      onClosePanel()
-      return
-    }
     // Cancel any in-progress close animation
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     // Panel already open → just swap content, no animation flicker
@@ -315,13 +314,19 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
       setPanelVisible(true)
       panelVisibleRef.current = true
     }))
-  }, [selectedTask, onClosePanel])
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    }
+  }, [])
 
   // The main view content (shared between desktop + mobile)
   const mainContent = (
     <div className="space-y-3 min-w-0">
       {/* Row 1: Status filter */}
-      <div className="flex rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/60 dark:border-white/[0.1] backdrop-blur-sm overflow-hidden text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] w-fit">
+      <div className="flex rounded-lg bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] backdrop-blur-sm overflow-hidden text-xs shadow-[var(--liquid-glass-shadow-soft)] w-fit">
         {([
           ["ALL", t.tasks.tabAll],
           ["TODO", t.tasks.tabTodo],
@@ -345,7 +350,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
 
       {/* Row 2: DDL date filter — only meaningful in list view */}
       {view === "list" && (
-        <div className="flex rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/60 dark:border-white/[0.1] backdrop-blur-sm overflow-hidden text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] w-fit">
+        <div className="flex rounded-lg bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] backdrop-blur-sm overflow-hidden text-xs shadow-[var(--liquid-glass-shadow-soft)] w-fit">
           {([
             ["ALL", t.ddl.ddlFilterAll],
             ["TODAY", t.ddl.ddlFilterToday],
@@ -387,7 +392,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
           )}
           <span className="text-sm font-semibold ml-1">{title}</span>
         </div>
-        <div className="flex rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/60 dark:border-white/[0.1] backdrop-blur-sm overflow-hidden text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+        <div className="flex rounded-lg bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] backdrop-blur-sm overflow-hidden text-xs shadow-[var(--liquid-glass-shadow-soft)]">
           {([["list", t.ddl.listView], ["week", t.ddl.weekView], ["month", t.ddl.monthView]] as const).map(([v, label]) => (
             <button
               key={v}
@@ -407,16 +412,16 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
         )}
 
         {view === "week" && (
-          <WeekDdlView tasks={filteredTasks} allTags={allTags} weekDays={weekDays} onSelectTask={onSelectTask} />
+          <WeekDdlView tasks={filteredTasks} weekDays={weekDays} onSelectTask={onSelectTask} />
         )}
 
         {view === "month" && (
           <div className={cn(
             "rounded-3xl overflow-hidden p-3",
-            "bg-[--muted]/60 dark:bg-[--muted]/40",
+            "bg-[var(--liquid-glass-bg-soft)]",
             "backdrop-filter backdrop-blur-2xl",
-            "border border-white/40 dark:border-white/[0.06]",
-            "shadow-[0_8px_40px_rgba(0,0,0,0.07),inset_0_1px_0_rgba(255,255,255,0.6)]",
+            "border border-[var(--liquid-glass-border-soft)]",
+            "shadow-[var(--liquid-glass-shadow)]",
           )}>
             <div className="grid grid-cols-7 mb-2">
               {WEEK_HEADER.map(d => (
@@ -442,7 +447,6 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
                   <MonthDdlCell
                     {...props}
                     tasks={filteredTasks}
-                    allTags={allTags}
                     isMobile={isMobile}
                     onSelectTask={onSelectTask}
                   />
@@ -483,14 +487,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
   // width: 0 → 320px compresses the main column; inner div spring-slides in from the right.
   const PANEL_W = 320
   return (
-    <div
-      className="flex gap-4 items-start min-w-0"
-      onClick={(e) => {
-        if (panelVisibleRef.current && panelRef.current && !panelRef.current.contains(e.target as Node)) {
-          onClosePanel()
-        }
-      }}
-    >
+    <div className="flex gap-6 items-stretch min-w-0">
       {/* Main content — naturally compressed as panel wrapper expands */}
       <div className="flex-1 min-w-0">
         {mainContent}
@@ -498,8 +495,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
 
       {/* Panel wrapper — always in DOM, width animates with ease-out-expo (no overshoot) */}
       <div
-        ref={panelRef}
-        className="flex-shrink-0 overflow-hidden"
+        className="flex-shrink-0 overflow-hidden self-stretch"
         style={{
           width: panelVisible ? PANEL_W : 0,
           transition: "width 0.42s cubic-bezier(0.16, 1, 0.3, 1)",
@@ -508,10 +504,10 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
         {/* Inner panel — spring slides in from right (slight overshoot for Apple feel) */}
         {selectedTask && (
           <div
-            className="sticky top-4"
+            className="sticky top-20"
             style={{
               width: PANEL_W,
-              maxHeight: "calc(100vh - 120px)",
+              height: "calc(100vh - 6.5rem)",
               opacity: panelVisible ? 1 : 0,
               transform: panelVisible ? "translateX(0)" : "translateX(32px)",
               transition: [

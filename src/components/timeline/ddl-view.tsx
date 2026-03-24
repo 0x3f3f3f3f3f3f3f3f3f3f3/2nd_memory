@@ -87,12 +87,11 @@ function TaskCard({
         onClick={handleClick}
         className={cn(
           "group flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer",
-          "bg-white/50 dark:bg-white/[0.035]",
-          "border border-white/60 dark:border-white/[0.07]",
+          "bg-[var(--liquid-glass-bg)]",
+          "border border-[var(--liquid-glass-border)]",
           "backdrop-blur-md",
-          "shadow-[0_2px_12px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.6)]",
-          "dark:shadow-[0_2px_12px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.04)]",
-          "hover:bg-white/70 dark:hover:bg-white/[0.06]",
+          "shadow-[var(--liquid-glass-shadow-soft)]",
+          "hover:bg-[var(--liquid-glass-hover-bg)]",
           "hover:-translate-y-px",
           "active:scale-[0.99] active:translate-y-0",
           "transition-all duration-200 ease-out",
@@ -136,7 +135,7 @@ function TaskCard({
               {task.taskTags.slice(0, 3).map(tt => (
                 <span
                   key={tt.tagId}
-                  className="text-[9px] px-1.5 py-px rounded-full bg-white/60 dark:bg-white/[0.06] text-[--muted-foreground] border border-white/50 dark:border-white/[0.08]"
+                  className="text-[9px] px-1.5 py-px rounded-full bg-[var(--liquid-glass-chip-bg)] text-[--muted-foreground] border border-[var(--liquid-glass-border-soft)]"
                 >
                   {tt.tag.name}
                 </span>
@@ -150,7 +149,7 @@ function TaskCard({
             "text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0",
             isOverdue
               ? "bg-red-100/80 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-700/30"
-              : "bg-white/60 dark:bg-white/[0.05] text-[--muted-foreground] border border-white/50 dark:border-white/[0.08]",
+              : "bg-[var(--liquid-glass-chip-bg)] text-[--muted-foreground] border border-[var(--liquid-glass-border-soft)]",
           )}>
             {isToday(toChina(task.dueAt))
               ? t.ddl.today
