@@ -65,7 +65,6 @@ model Task {
   description     String?
   status          TaskStatus @default(TODO)
   priority        Priority   @default(MEDIUM)
-  startAt         DateTime?
   dueAt           DateTime?
   reminderAt      DateTime?
   completedAt     DateTime?
@@ -77,14 +76,30 @@ model Task {
   updatedAt       DateTime   @updatedAt
   archivedAt      DateTime?
 
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  taskTags TaskTag[]
-  subTasks SubTask[]
-  noteTasks NoteTask[]
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskTags   TaskTag[]
+  subTasks   SubTask[]
+  noteTasks  NoteTask[]
+  timeBlocks TimeBlock[]
 
   @@index([userId])
   @@index([userId, status])
   @@index([userId, dueAt])
+}
+
+model TimeBlock {
+  id        String   @id @default(cuid())
+  taskId    String
+  startAt   DateTime
+  endAt     DateTime
+  isAllDay  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([startAt])
 }
 
 model TaskTag {

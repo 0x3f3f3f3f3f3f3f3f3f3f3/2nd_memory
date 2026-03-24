@@ -5,6 +5,7 @@ import { NoteList } from "@/components/notes/note-list"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
+import { getServerT } from "@/lib/server-locale"
 
 export const metadata = { title: "知识库" }
 
@@ -13,6 +14,7 @@ export default async function NotesPage({
 }: {
   searchParams: Promise<{ q?: string; type?: string; tag?: string }>
 }) {
+  const { t } = await getServerT()
   const params = await searchParams
   const { q, type, tag } = params
 
@@ -34,12 +36,12 @@ export default async function NotesPage({
   return (
     <div className="flex flex-col">
       <Topbar
-        title="知识库"
+        title={t.notes.pageTitle}
         actions={
           <Button size="sm" asChild>
             <Link href="/notes/new">
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">新建笔记</span>
+              <span className="hidden sm:inline">{t.notes.newNote}</span>
             </Link>
           </Button>
         }

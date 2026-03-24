@@ -10,7 +10,7 @@ const buttonVariants = cva(
       variant: {
         default: "bg-[--primary] text-[--primary-foreground] hover:opacity-90 shadow-sm",
         destructive: "bg-[--destructive] text-[--destructive-foreground] hover:opacity-90 shadow-sm",
-        outline: "border border-[--border] bg-transparent hover:bg-[--accent] hover:text-[--accent-foreground] btn-ghost-animate",
+        outline: "border border-white/60 dark:border-white/[0.12] bg-white/30 dark:bg-white/[0.04] hover:bg-white/55 dark:hover:bg-white/[0.09] hover:text-[--accent-foreground] backdrop-blur-sm transition-all btn-ghost-animate",
         secondary: "bg-[--secondary] text-[--secondary-foreground] hover:bg-[--secondary]/80 btn-ghost-animate",
         ghost: "hover:bg-[--accent] hover:text-[--accent-foreground] btn-ghost-animate",
         link: "text-[--primary] underline-offset-4 hover:underline",

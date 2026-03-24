@@ -10,16 +10,23 @@ export default async function LoginPage() {
   if (authed) redirect("/today")
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[--background] px-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-50 via-[#FAF9F6] to-orange-50/40 dark:from-[#1C1917] dark:via-[#1C1917] dark:to-[#211E1B] px-4 relative overflow-hidden">
+      {/* Floating orbs */}
+      <div className="login-orb w-72 h-72 bg-[#D97A5C] top-[-5%] left-[10%]" />
+      <div className="login-orb w-96 h-96 bg-amber-300/60 bottom-[-10%] right-[5%]" style={{ animationDelay: "-3s" }} />
+      <div className="login-orb w-56 h-56 bg-orange-200 top-[40%] right-[20%]" style={{ animationDelay: "-5s" }} />
+
+      <div className="w-full max-w-sm relative z-10">
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-[--primary] flex items-center justify-center mb-4 shadow-lg">
-            <Sprout className="w-7 h-7 text-[--primary-foreground]" />
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#C96444] to-[#E08060] flex items-center justify-center mb-4 shadow-[0_8px_32px_rgba(201,100,68,0.25)]">
+            <Sprout className="w-8 h-8 text-[--primary-foreground]" />
           </div>
-          <h1 className="text-2xl font-bold">记忆花园</h1>
-          <p className="text-sm text-[--muted-foreground] mt-1">你的个人第二大脑</p>
+          <h1 className="text-3xl font-bold text-gradient bg-gradient-to-r from-[#C96444] to-[#E08060] dark:from-[#D4785A] dark:to-[#E8906E]">
+            记忆花园
+          </h1>
+          <p className="text-sm text-[--muted-foreground] mt-1.5">你的个人第二大脑</p>
         </div>
-        <div className="bg-[--card] border border-[--border] rounded-2xl p-6 shadow-sm">
+        <div className="glass rounded-2xl p-6">
           <LoginForm />
         </div>
         <p className="text-center text-xs text-[--muted-foreground] mt-4">

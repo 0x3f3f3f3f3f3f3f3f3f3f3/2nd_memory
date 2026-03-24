@@ -10,7 +10,6 @@ const TaskSchema = z.object({
   status: z.enum(["INBOX", "TODO", "DOING", "DONE", "ARCHIVED"]).default("TODO"),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
   dueAt: z.string().optional().nullable(),
-  startAt: z.string().optional().nullable(),
   reminderAt: z.string().optional().nullable(),
   estimateMinutes: z.coerce.number().optional().nullable(),
   isPinned: z.boolean().default(false),
@@ -27,7 +26,6 @@ export async function createTask(data: z.input<typeof TaskSchema>) {
       status: parsed.status,
       priority: parsed.priority,
       dueAt: parsed.dueAt ? new Date(parsed.dueAt) : null,
-      startAt: parsed.startAt ? new Date(parsed.startAt) : null,
       reminderAt: parsed.reminderAt ? new Date(parsed.reminderAt) : null,
       estimateMinutes: parsed.estimateMinutes ?? null,
       isPinned: parsed.isPinned,
@@ -44,13 +42,12 @@ export async function createTask(data: z.input<typeof TaskSchema>) {
 }
 
 export async function updateTask(id: string, data: Partial<z.infer<typeof TaskSchema>>) {
-  const { tagIds, dueAt, startAt, reminderAt, ...rest } = data
+  const { tagIds, dueAt, reminderAt, ...rest } = data
   const task = await prisma.task.update({
     where: { id, userId: OWNER_USER_ID },
     data: {
       ...rest,
       dueAt: dueAt !== undefined ? (dueAt ? new Date(dueAt) : null) : undefined,
-      startAt: startAt !== undefined ? (startAt ? new Date(startAt) : null) : undefined,
       reminderAt: reminderAt !== undefined ? (reminderAt ? new Date(reminderAt) : null) : undefined,
       completedAt: rest.status === "DONE" ? new Date() : rest.status ? null : undefined,
       ...(tagIds !== undefined && {
@@ -128,5 +125,52 @@ export async function reorderTasks(orderedIds: string[]) {
     )
   )
   revalidatePath("/tasks")
+  revalidatePath("/today")
+}
+
+/* ── TimeBlock CRUD ── */
+
+export async function createTimeBlock(taskId: string, startAt: Date, endAt: Date) {
+  const block = await prisma.timeBlock.create({
+    data: { taskId, startAt, endAt },
+  })
+  revalidatePath("/timeline")
+  revalidatePath("/today")
+  return block
+}
+
+export async function updateTimeBlock(id: string, startAt: Date, endAt: Date) {
+  const block = await prisma.timeBlock.update({
+    where: { id },
+    data: { startAt, endAt },
+  })
+  revalidatePath("/timeline")
+  revalidatePath("/today")
+  return block
+}
+
+export async function deleteTimeBlock(id: string) {
+  await prisma.timeBlock.delete({ where: { id } })
+  revalidatePath("/timeline")
+  revalidatePath("/today")
+}
+
+/** Assigns a task to a day (without a specific time) */
+export async function createAllDayBlock(taskId: string, dateStr: string) {
+  // dateStr is "YYYY-MM-DD" in the user's local calendar
+  const d = new Date(`${dateStr}T00:00:00Z`)
+  const block = await prisma.timeBlock.create({
+    data: { taskId, startAt: d, endAt: d, isAllDay: true },
+  })
+  revalidatePath("/timeline")
+  revalidatePath("/today")
+  return block
+}
+
+/** Removes all time blocks for a task on a given day */
+export async function deleteTimeBlocksByIds(ids: string[]) {
+  if (ids.length === 0) return
+  await prisma.timeBlock.deleteMany({ where: { id: { in: ids } } })
+  revalidatePath("/timeline")
   revalidatePath("/today")
 }

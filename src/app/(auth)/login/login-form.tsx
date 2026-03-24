@@ -40,7 +40,7 @@ export function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="输入访问密码"
-            className="pl-10 pr-10"
+            className="pl-10 pr-10 bg-[--background]/50 backdrop-blur-sm focus-glow"
             autoFocus
             required
           />
@@ -58,7 +58,11 @@ export function LoginForm() {
           {error}
         </p>
       )}
-      <Button type="submit" className="w-full" disabled={isPending || !password}>
+      <Button
+        type="submit"
+        className="w-full bg-gradient-to-r from-[#C96444] to-[#D97A5C] hover:from-[#B85A3C] hover:to-[#C96A4E] shadow-[0_4px_16px_rgba(201,100,68,0.25)] border-0"
+        disabled={isPending || !password}
+      >
         {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "进入花园"}
       </Button>
     </form>

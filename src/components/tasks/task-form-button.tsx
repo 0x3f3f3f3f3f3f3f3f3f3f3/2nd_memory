@@ -10,9 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TagChip } from "@/components/shared/tag-chip"
 import { Plus, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useT } from "@/contexts/locale-context"
 import type { Tag } from "@prisma/client"
 
 export function TaskFormButton({ tags }: { tags: Tag[] }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [title, setTitle] = useState("")
@@ -20,6 +22,13 @@ export function TaskFormButton({ tags }: { tags: Tag[] }) {
   const [priority, setPriority] = useState("MEDIUM")
   const [dueAt, setDueAt] = useState("")
   const [selectedTags, setSelectedTags] = useState<string[]>([])
+
+  const PRIORITY_OPTIONS = [
+    { value: "LOW", label: t.tasks.priorityLow },
+    { value: "MEDIUM", label: t.tasks.priorityMedium },
+    { value: "HIGH", label: t.tasks.priorityHigh },
+    { value: "URGENT", label: t.tasks.priorityUrgent },
+  ]
 
   const reset = () => {
     setTitle(""); setDescription(""); setPriority("MEDIUM"); setDueAt(""); setSelectedTags([])
@@ -33,7 +42,7 @@ export function TaskFormButton({ tags }: { tags: Tag[] }) {
         title: title.trim(),
         description: description.trim() || undefined,
         priority: priority as any,
-        dueAt: dueAt || undefined,
+        dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
         tagIds: selectedTags,
       })
       reset()
@@ -46,43 +55,42 @@ export function TaskFormButton({ tags }: { tags: Tag[] }) {
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5">
           <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">新建任务</span>
+          <span className="hidden sm:inline">{t.tasks.newTask}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>新建任务</DialogTitle>
+          <DialogTitle>{t.tasks.newTask}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label>任务标题 *</Label>
-            <Input placeholder="输入任务..." value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+            <Label>{t.tasks.titleLabel}</Label>
+            <Input placeholder={t.tasks.titlePlaceholder} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
           </div>
           <div className="space-y-1.5">
-            <Label>备注</Label>
-            <Textarea placeholder="可选备注..." value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
+            <Label>{t.tasks.notesLabel}</Label>
+            <Textarea placeholder={t.tasks.notesPlaceholder} value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>优先级</Label>
+              <Label>{t.tasks.priorityLabel}</Label>
               <Select value={priority} onValueChange={setPriority}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="LOW">低</SelectItem>
-                  <SelectItem value="MEDIUM">中</SelectItem>
-                  <SelectItem value="HIGH">高</SelectItem>
-                  <SelectItem value="URGENT">紧急</SelectItem>
+                  {PRIORITY_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>截止时间</Label>
+              <Label>{t.tasks.dueDateLabel}</Label>
               <Input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
             </div>
           </div>
           {tags.length > 0 && (
             <div className="space-y-1.5">
-              <Label>标签</Label>
+              <Label>{t.tasks.tagsLabel}</Label>
               <div className="flex flex-wrap gap-2">
                 {tags.map((tag) => (
                   <button
@@ -101,9 +109,9 @@ export function TaskFormButton({ tags }: { tags: Tag[] }) {
             </div>
           )}
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>取消</Button>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t.tasks.cancel}</Button>
             <Button type="submit" disabled={isPending || !title.trim()}>
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "创建"}
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t.tasks.create}
             </Button>
           </DialogFooter>
         </form>

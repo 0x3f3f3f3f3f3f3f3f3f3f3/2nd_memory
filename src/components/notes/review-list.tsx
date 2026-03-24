@@ -38,7 +38,7 @@ function ReviewCard({ note }: { note: NoteWithRelations }) {
   if (done) return null
 
   return (
-    <div className="border border-[--border] rounded-xl bg-[--card] overflow-hidden">
+    <div className="rounded-xl overflow-hidden card-hover bg-white/50 dark:bg-white/[0.04] border border-white/60 dark:border-white/[0.07] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5)]">
       <div className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -67,12 +67,12 @@ function ReviewCard({ note }: { note: NoteWithRelations }) {
       </div>
 
       {expanded && note.contentMd && (
-        <div className="px-4 pb-4 border-t border-[--border] pt-3 prose prose-sm max-w-none text-[--foreground]">
+        <div className="px-4 pb-4 border-t border-white/30 dark:border-white/[0.06] pt-3 prose prose-sm max-w-none text-[--foreground]">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.contentMd}</ReactMarkdown>
         </div>
       )}
 
-      <div className="flex items-center gap-2 p-3 bg-[--muted]/30 border-t border-[--border] flex-wrap">
+      <div className="flex items-center gap-2 p-3 bg-white/30 dark:bg-white/[0.02] border-t border-white/30 dark:border-white/[0.06] flex-wrap">
         <span className="text-xs text-[--muted-foreground] mr-1">你记得吗?</span>
         {REVIEW_BUTTONS.map((btn) => (
           <Button key={btn.value} variant="outline" size="sm" className={`h-7 text-xs ${btn.cls}`} onClick={() => handleRate(btn.value)} disabled={isPending}>

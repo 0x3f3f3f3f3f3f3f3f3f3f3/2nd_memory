@@ -10,31 +10,18 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TagChip } from "@/components/shared/tag-chip"
-import { Badge } from "@/components/ui/badge"
-import { cn, getDueLabel, isOverdue, PRIORITY_LABELS, PRIORITY_COLORS, STATUS_LABELS, formatDate } from "@/lib/utils"
+import { cn, getDueLabel, isOverdue, PRIORITY_COLORS, formatDate, toLocalDatetimeInput } from "@/lib/utils"
 import {
   Pencil, Trash2, Loader2, Clock, AlertCircle, CalendarDays,
-  AlignLeft, Tag as TagIcon, X, CheckSquare,
+  AlignLeft, Tag as TagIcon, CheckSquare,
 } from "lucide-react"
+import { useT } from "@/contexts/locale-context"
 import type { Task, TaskTag, Tag, SubTask } from "@prisma/client"
 
 type TaskWithRelations = Task & {
   taskTags: (TaskTag & { tag: Tag })[]
   subTasks: SubTask[]
 }
-
-const PRIORITY_OPTIONS = [
-  { value: "LOW", label: "低" },
-  { value: "MEDIUM", label: "中" },
-  { value: "HIGH", label: "高" },
-  { value: "URGENT", label: "紧急" },
-]
-
-const STATUS_OPTIONS = [
-  { value: "TODO", label: "待办" },
-  { value: "DOING", label: "进行中" },
-  { value: "DONE", label: "已完成" },
-]
 
 const STATUS_BADGE_COLOR: Record<string, string> = {
   TODO: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
@@ -50,22 +37,46 @@ interface TaskDetailDialogProps {
 }
 
 export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDetailDialogProps) {
+  const t = useT()
   const [mode, setMode] = useState<"view" | "edit">("view")
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  // Edit form state
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description ?? "")
   const [priority, setPriority] = useState<string>(task.priority)
   const [status, setStatus] = useState<string>(task.status)
-  const [dueAt, setDueAt] = useState(
-    task.dueAt ? new Date(task.dueAt).toISOString().slice(0, 16) : ""
-  )
+  const [dueAt, setDueAt] = useState(() => toLocalDatetimeInput(task.dueAt))
   const [selectedTags, setSelectedTags] = useState<string[]>(task.taskTags.map((tt) => tt.tagId))
 
   const overdue = task.status !== "DONE" && isOverdue(task.dueAt)
   const dueLabel = getDueLabel(task.dueAt)
+
+  const PRIORITY_OPTIONS = [
+    { value: "LOW", label: t.tasks.priorityLow },
+    { value: "MEDIUM", label: t.tasks.priorityMedium },
+    { value: "HIGH", label: t.tasks.priorityHigh },
+    { value: "URGENT", label: t.tasks.priorityUrgent },
+  ]
+
+  const STATUS_OPTIONS = [
+    { value: "TODO", label: t.tasks.statusTodo },
+    { value: "DOING", label: t.tasks.statusDoing },
+    { value: "DONE", label: t.tasks.statusDone },
+  ]
+
+  const PRIORITY_LABELS: Record<string, string> = {
+    LOW: t.tasks.priorityLow,
+    MEDIUM: t.tasks.priorityMedium,
+    HIGH: t.tasks.priorityHigh,
+    URGENT: t.tasks.priorityUrgent,
+  }
+
+  const STATUS_LABELS: Record<string, string> = {
+    TODO: t.tasks.statusTodo,
+    DOING: t.tasks.statusDoing,
+    DONE: t.tasks.statusDone,
+  }
 
   const handleSave = () => {
     startTransition(async () => {
@@ -74,7 +85,7 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
         description: description.trim() || undefined,
         priority: priority as any,
         status: status as any,
-        dueAt: dueAt || null,
+        dueAt: dueAt ? new Date(dueAt).toISOString() : null,
         tagIds: selectedTags,
       })
       setMode("view")
@@ -90,7 +101,6 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
 
   const handleClose = () => {
     onOpenChange(false)
-    // Reset edit state after close
     setTimeout(() => {
       setMode("view")
       setConfirmDelete(false)
@@ -98,7 +108,7 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
       setDescription(task.description ?? "")
       setPriority(task.priority)
       setStatus(task.status)
-      setDueAt(task.dueAt ? new Date(task.dueAt).toISOString().slice(0, 16) : "")
+      setDueAt(toLocalDatetimeInput(task.dueAt))
       setSelectedTags(task.taskTags.map((tt) => tt.tagId))
     }, 200)
   }
@@ -109,38 +119,34 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
         <DialogHeader>
           <div className="flex items-center justify-between gap-2 pr-6">
             <DialogTitle className="text-base">
-              {mode === "edit" ? "编辑任务" : "任务详情"}
+              {mode === "edit" ? t.taskDetail.editTitle : t.taskDetail.viewTitle}
             </DialogTitle>
             <div className="flex gap-1.5">
               {mode === "view" && (
-                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setMode("edit")}>
-                  <Pencil className="w-3.5 h-3.5 mr-1" />编辑
+                <Button size="sm" variant="ghost" className="h-9 px-3 md:h-7 md:px-2 text-xs" onClick={() => setMode("edit")}>
+                  <Pencil className="w-3.5 h-3.5 mr-1" />{t.taskDetail.editBtn}
                 </Button>
               )}
               {!confirmDelete ? (
                 <Button
                   size="sm" variant="ghost"
-                  className="h-7 px-2 text-xs text-[--destructive] hover:text-[--destructive] hover:bg-red-50 dark:hover:bg-red-950/30"
+                  className="h-9 px-3 md:h-7 md:px-2 text-xs text-[--destructive] hover:text-[--destructive] hover:bg-red-50 dark:hover:bg-red-950/30"
                   onClick={() => setConfirmDelete(true)}
                 >
-                  <Trash2 className="w-3.5 h-3.5 mr-1" />删除
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />{t.taskDetail.deleteBtn}
                 </Button>
               ) : (
                 <div className="flex gap-1">
                   <Button
                     size="sm" variant="destructive"
-                    className="h-7 px-2 text-xs"
+                    className="h-9 px-3 md:h-7 md:px-2 text-xs"
                     disabled={isPending}
                     onClick={handleDelete}
                   >
-                    {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "确认删除"}
+                    {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t.taskDetail.confirmDeleteBtn}
                   </Button>
-                  <Button
-                    size="sm" variant="ghost"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setConfirmDelete(false)}
-                  >
-                    取消
+                  <Button size="sm" variant="ghost" className="h-9 px-3 md:h-7 md:px-2 text-xs" onClick={() => setConfirmDelete(false)}>
+                    {t.taskDetail.cancelBtn}
                   </Button>
                 </div>
               )}
@@ -150,20 +156,18 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
 
         {mode === "view" ? (
           <div className="space-y-4 pt-1">
-            {/* Title */}
             <div>
               <p className={cn("text-base font-medium", task.status === "DONE" && "line-through text-[--muted-foreground]")}>
                 {task.title}
               </p>
             </div>
 
-            {/* Meta row */}
             <div className="flex flex-wrap gap-2">
               <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", STATUS_BADGE_COLOR[task.status] ?? STATUS_BADGE_COLOR.TODO)}>
-                {STATUS_LABELS[task.status as keyof typeof STATUS_LABELS] ?? task.status}
+                {STATUS_LABELS[task.status] ?? task.status}
               </span>
               <span className={cn("text-xs px-2 py-0.5 rounded-full bg-[--muted] font-medium", PRIORITY_COLORS[task.priority])}>
-                优先级：{PRIORITY_LABELS[task.priority as keyof typeof PRIORITY_LABELS]}
+                {t.taskDetail.priorityValue(PRIORITY_LABELS[task.priority] ?? task.priority)}
               </span>
               {dueLabel && (
                 <span className={cn("flex items-center gap-1 text-xs px-2 py-0.5 rounded-full", overdue ? "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400" : "bg-[--muted] text-[--muted-foreground]")}>
@@ -173,21 +177,19 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
               )}
             </div>
 
-            {/* Description */}
             {task.description && (
               <div className="space-y-1">
                 <p className="text-xs font-medium text-[--muted-foreground] flex items-center gap-1">
-                  <AlignLeft className="w-3.5 h-3.5" />备注
+                  <AlignLeft className="w-3.5 h-3.5" />{t.taskDetail.notesLabel}
                 </p>
                 <p className="text-sm text-[--foreground] bg-[--muted]/50 rounded-lg p-3 whitespace-pre-wrap">{task.description}</p>
               </div>
             )}
 
-            {/* Tags */}
             {task.taskTags.length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-[--muted-foreground] flex items-center gap-1">
-                  <TagIcon className="w-3.5 h-3.5" />标签
+                  <TagIcon className="w-3.5 h-3.5" />{t.taskDetail.tagsLabel}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {task.taskTags.map(({ tag }) => (
@@ -197,11 +199,10 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
               </div>
             )}
 
-            {/* Subtasks */}
             {task.subTasks.length > 0 && (
               <div className="space-y-1.5">
                 <p className="text-xs font-medium text-[--muted-foreground] flex items-center gap-1">
-                  <CheckSquare className="w-3.5 h-3.5" />子任务 ({task.subTasks.filter(s => s.done).length}/{task.subTasks.length})
+                  <CheckSquare className="w-3.5 h-3.5" />{t.taskDetail.subtasksLabel(task.subTasks.filter(s => s.done).length, task.subTasks.length)}
                 </p>
                 <div className="space-y-1">
                   {task.subTasks.map((sub) => (
@@ -216,25 +217,24 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
               </div>
             )}
 
-            {/* Timestamps */}
             <p className="text-xs text-[--muted-foreground]">
-              创建于 {formatDate(task.createdAt)}
-              {task.updatedAt !== task.createdAt && `  ·  更新于 ${formatDate(task.updatedAt)}`}
+              {t.taskDetail.createdAt(formatDate(task.createdAt))}
+              {task.updatedAt !== task.createdAt && t.taskDetail.updatedAt(formatDate(task.updatedAt))}
             </p>
           </div>
         ) : (
           <div className="space-y-4 pt-1">
             <div className="space-y-1.5">
-              <Label>标题 *</Label>
+              <Label>{t.tasks.titleLabel}</Label>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
             </div>
             <div className="space-y-1.5">
-              <Label>备注</Label>
-              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="可选备注..." />
+              <Label>{t.taskDetail.notesLabel}</Label>
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={t.taskDetail.notesPlaceholder} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>状态</Label>
+                <Label>{t.taskDetail.statusLabel}</Label>
                 <Select value={status} onValueChange={setStatus}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -243,7 +243,7 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>优先级</Label>
+                <Label>{t.taskDetail.priorityLabel}</Label>
                 <Select value={priority} onValueChange={setPriority}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -253,12 +253,12 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>截止时间</Label>
+              <Label>{t.taskDetail.dueDateLabel}</Label>
               <Input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
             </div>
             {allTags.length > 0 && (
               <div className="space-y-1.5">
-                <Label>标签</Label>
+                <Label>{t.taskDetail.tagsLabel}</Label>
                 <div className="flex flex-wrap gap-2">
                   {allTags.map((tag) => (
                     <button
@@ -279,9 +279,9 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
               </div>
             )}
             <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="ghost" onClick={() => setMode("view")}>取消</Button>
+              <Button type="button" variant="ghost" onClick={() => setMode("view")}>{t.taskDetail.cancelBtn}</Button>
               <Button type="button" disabled={isPending || !title.trim()} onClick={handleSave}>
-                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "保存"}
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t.taskDetail.saveBtn}
               </Button>
             </div>
           </div>

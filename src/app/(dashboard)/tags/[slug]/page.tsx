@@ -60,7 +60,7 @@ export default async function TagPage({ params }: { params: Promise<{ slug: stri
             <h2 className="text-sm font-semibold mb-3">笔记</h2>
             <div className="space-y-2">
               {notes.map((note) => (
-                <Link key={note.id} href={`/notes/${note.id}`} className="block p-3 rounded-lg border border-[--border] hover:bg-[--accent] transition-colors">
+                <Link key={note.id} href={`/notes/${note.id}`} className="block p-3 rounded-xl bg-white/45 dark:bg-white/[0.03] border border-white/50 dark:border-white/[0.06] backdrop-blur-md hover:bg-white/65 dark:hover:bg-white/[0.06] transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.03),inset_0_1px_0_rgba(255,255,255,0.5)]">
                   <p className="text-sm font-medium">{note.title}</p>
                   {note.summary && <p className="text-xs text-[--muted-foreground] mt-0.5">{note.summary}</p>}
                 </Link>

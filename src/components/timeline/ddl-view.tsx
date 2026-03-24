@@ -1,0 +1,261 @@
+"use client"
+import { useState } from "react"
+import { format, isToday, isBefore, startOfDay, addDays, endOfWeek, addWeeks } from "date-fns"
+import { cn, toChina, chinaNow } from "@/lib/utils"
+import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
+import { AlertTriangle, Clock, Flag, CalendarClock } from "lucide-react"
+import { useT } from "@/contexts/locale-context"
+import type { Task, TaskTag, Tag, SubTask, TimeBlock } from "@prisma/client"
+
+type TaskWithRelations = Task & {
+  taskTags: (TaskTag & { tag: Tag })[]
+  subTasks?: SubTask[]
+  timeBlocks?: TimeBlock[]
+}
+
+const P_DOT: Record<string, string> = {
+  LOW: "bg-stone-400", MEDIUM: "bg-sky-400", HIGH: "bg-orange-400", URGENT: "bg-red-500",
+}
+
+function totalBlockMinutes(blocks: TimeBlock[]): number {
+  return blocks.reduce((sum, b) => {
+    const ms = new Date(b.endAt).getTime() - new Date(b.startAt).getTime()
+    return sum + ms / 60000
+  }, 0)
+}
+
+function formatDuration(mins: number): string {
+  const h = Math.floor(mins / 60)
+  const m = Math.round(mins % 60)
+  if (h === 0) return `${m}m`
+  if (m === 0) return `${h}h`
+  return `${h}h${m}m`
+}
+
+function TaskCard({ task, allTags, index }: { task: TaskWithRelations; allTags: Tag[]; index: number }) {
+  const t = useT()
+  const [open, setOpen] = useState(false)
+  const blocks = task.timeBlocks ?? []
+  const scheduledMin = totalBlockMinutes(blocks)
+  const estimateMin = task.estimateMinutes ?? 0
+  const hasEstimate = estimateMin > 0
+  const progress = hasEstimate ? Math.min(scheduledMin / estimateMin, 1) : 0
+  const isOverdue = task.dueAt && isBefore(toChina(task.dueAt), startOfDay(chinaNow())) && task.status !== "DONE"
+
+  return (
+    <>
+      <div
+        onClick={() => setOpen(true)}
+        className={cn(
+          "group flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer",
+          "bg-white/50 dark:bg-white/[0.035]",
+          "border border-white/60 dark:border-white/[0.07]",
+          "backdrop-blur-md",
+          "shadow-[0_2px_12px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.6)]",
+          "dark:shadow-[0_2px_12px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.04)]",
+          "hover:bg-white/70 dark:hover:bg-white/[0.06]",
+          "hover:shadow-[0_6px_24px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7)]",
+          "dark:hover:shadow-[0_6px_24px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]",
+          "hover:-translate-y-px",
+          "active:scale-[0.99] active:translate-y-0",
+          "transition-all duration-200 ease-out",
+          "animate-card-enter",
+          task.status === "DONE" && "opacity-50",
+        )}
+        style={{ animationDelay: `${index * 40}ms` }}
+      >
+        <span className={cn(
+          "w-2.5 h-2.5 rounded-full flex-shrink-0 transition-transform duration-200 group-hover:scale-125",
+          P_DOT[task.priority],
+          isOverdue && "ring-2 ring-red-400/40 ring-offset-1 ring-offset-transparent",
+        )} />
+
+        <div className="flex-1 min-w-0">
+          <p className={cn(
+            "text-sm font-medium truncate transition-colors duration-150",
+            "group-hover:text-[--foreground]",
+            task.status === "DONE" && "line-through text-[--muted-foreground]",
+          )}>
+            {task.title}
+          </p>
+          {task.taskTags.length > 0 && (
+            <div className="flex gap-1 mt-0.5">
+              {task.taskTags.slice(0, 3).map(tt => (
+                <span
+                  key={tt.tagId}
+                  className="text-[9px] px-1.5 py-px rounded-full bg-white/60 dark:bg-white/[0.06] text-[--muted-foreground] border border-white/50 dark:border-white/[0.08]"
+                >
+                  {tt.tag.name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {task.dueAt && (
+          <span className={cn(
+            "text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0",
+            isOverdue
+              ? "bg-red-100/80 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-700/30"
+              : "bg-white/60 dark:bg-white/[0.05] text-[--muted-foreground] border border-white/50 dark:border-white/[0.08]",
+          )}>
+            {isToday(toChina(task.dueAt))
+              ? t.ddl.today
+              : format(toChina(task.dueAt), "M/d EEE", { locale: t.dateFnsLocale })}
+          </span>
+        )}
+
+        <div className="flex-shrink-0 w-24">
+          {hasEstimate ? (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] text-[--muted-foreground]/70 whitespace-nowrap">
+                  {formatDuration(scheduledMin)}/{formatDuration(estimateMin)}
+                </span>
+                {progress >= 1 && <span className="text-[9px] text-emerald-500">✓</span>}
+              </div>
+              <div className="h-1 rounded-full bg-[--foreground]/[0.06] overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    progress >= 1 ? "bg-emerald-500" : progress > 0 ? "bg-[--primary]" : "bg-transparent",
+                  )}
+                  style={{ width: `${progress * 100}%` }}
+                />
+              </div>
+            </div>
+          ) : blocks.length > 0 ? (
+            <span className="text-[9px] text-[--muted-foreground]/70">{formatDuration(scheduledMin)}</span>
+          ) : (
+            <span className="text-[9px] text-[--muted-foreground]/40">{t.ddl.unscheduled}</span>
+          )}
+        </div>
+      </div>
+
+      <TaskDetailDialog
+        task={{ ...task, subTasks: task.subTasks ?? [] }}
+        allTags={allTags}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </>
+  )
+}
+
+function Section({
+  label, icon, tasks, allTags, accent, startIndex = 0,
+}: {
+  label: string
+  icon?: React.ReactNode
+  tasks: TaskWithRelations[]
+  allTags: Tag[]
+  accent?: string
+  startIndex?: number
+}) {
+  const t = useT()
+  if (tasks.length === 0) return null
+  return (
+    <div className="space-y-2 animate-page-enter">
+      <div className={cn("flex items-center gap-2 px-1", accent)}>
+        {icon}
+        <span className="text-xs font-semibold tracking-wide">{label}</span>
+        <div className="flex-1 h-px bg-[--foreground]/[0.06] ml-1" />
+        <span className="text-[10px] text-[--muted-foreground]/60 font-normal">{t.ddl.items(tasks.length)}</span>
+      </div>
+
+      <div className="space-y-1.5 pl-1">
+        {tasks.map((task, i) => (
+          <TaskCard key={task.id} task={task} allTags={allTags} index={startIndex + i} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function DdlView({ tasks, allTags }: { tasks: TaskWithRelations[]; allTags: Tag[] }) {
+  const t = useT()
+  const now = chinaNow()
+  const todayStart = startOfDay(now)
+  const todayEnd = addDays(todayStart, 1)
+  const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 })
+  const nextWeekEnd = addWeeks(thisWeekEnd, 1)
+
+  const overdue: TaskWithRelations[] = []
+  const today: TaskWithRelations[] = []
+  const thisWeek: TaskWithRelations[] = []
+  const nextWeek: TaskWithRelations[] = []
+  const later: TaskWithRelations[] = []
+
+  for (const task of tasks) {
+    if (task.status === "DONE" || task.status === "ARCHIVED") continue
+    if (!task.dueAt) continue
+    const d = toChina(task.dueAt)
+    if (isBefore(d, todayStart)) overdue.push(task)
+    else if (isBefore(d, todayEnd)) today.push(task)
+    else if (isBefore(d, thisWeekEnd)) thisWeek.push(task)
+    else if (isBefore(d, nextWeekEnd)) nextWeek.push(task)
+    else later.push(task)
+  }
+
+  const hasAny = overdue.length + today.length + thisWeek.length + nextWeek.length + later.length > 0
+
+  if (!hasAny) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-[--muted-foreground]">
+        <Flag className="w-12 h-12 mb-3 opacity-20" />
+        <p className="text-sm">{t.ddl.emptyTitle}</p>
+      </div>
+    )
+  }
+
+  const o0 = 0
+  const o1 = o0 + overdue.length
+  const o2 = o1 + today.length
+  const o3 = o2 + thisWeek.length
+  const o4 = o3 + nextWeek.length
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <Section
+        label={t.ddl.overdue}
+        icon={<AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
+        tasks={overdue}
+        allTags={allTags}
+        accent="text-red-600 dark:text-red-400"
+        startIndex={o0}
+      />
+      <Section
+        label={t.ddl.today}
+        icon={<Flag className="w-3.5 h-3.5 text-[--primary]" />}
+        tasks={today}
+        allTags={allTags}
+        accent="text-[--primary]"
+        startIndex={o1}
+      />
+      <Section
+        label={t.ddl.thisWeek}
+        icon={<Clock className="w-3.5 h-3.5 text-[--muted-foreground]" />}
+        tasks={thisWeek}
+        allTags={allTags}
+        accent="text-[--muted-foreground]"
+        startIndex={o2}
+      />
+      <Section
+        label={t.ddl.nextWeek}
+        icon={<CalendarClock className="w-3.5 h-3.5 text-[--muted-foreground]/70" />}
+        tasks={nextWeek}
+        allTags={allTags}
+        accent="text-[--muted-foreground]/70"
+        startIndex={o3}
+      />
+      <Section
+        label={t.ddl.later}
+        icon={<CalendarClock className="w-3.5 h-3.5 text-[--muted-foreground]/50" />}
+        tasks={later}
+        allTags={allTags}
+        accent="text-[--muted-foreground]/50"
+        startIndex={o4}
+      />
+    </div>
+  )
+}

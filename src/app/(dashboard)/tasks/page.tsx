@@ -3,6 +3,7 @@ import { OWNER_USER_ID } from "@/lib/auth"
 import { Topbar } from "@/components/layout/topbar"
 import { TaskList } from "@/components/tasks/task-list"
 import { TaskFormButton } from "@/components/tasks/task-form-button"
+import { getServerT } from "@/lib/server-locale"
 
 export const metadata = { title: "任务" }
 
@@ -11,6 +12,7 @@ export default async function TasksPage({
 }: {
   searchParams: Promise<{ status?: string; priority?: string; tag?: string; q?: string }>
 }) {
+  const { t } = await getServerT()
   const params = await searchParams
   const { status, priority, tag, q } = params
 
@@ -31,7 +33,7 @@ export default async function TasksPage({
 
   return (
     <div className="flex flex-col">
-      <Topbar title="任务" actions={<TaskFormButton tags={tags} />} />
+      <Topbar title={t.tasks.pageTitle} actions={<TaskFormButton tags={tags} />} />
       <div className="flex-1 p-4 md:p-6">
         <TaskList tasks={tasks} tags={tags} />
       </div>

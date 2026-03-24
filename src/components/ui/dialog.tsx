@@ -33,13 +33,20 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 p-6 shadow-2xl duration-200 sm:rounded-2xl backdrop-blur-2xl saturate-150 bg-[rgba(255,255,255,0.82)] dark:bg-[rgba(30,41,59,0.85)] border border-[rgba(255,255,255,0.4)] dark:border-[rgba(255,255,255,0.1)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+        // Shared base
+        "fixed z-50 grid gap-4 shadow-2xl duration-200 backdrop-blur-2xl saturate-150 bg-[rgba(255,255,255,0.82)] dark:bg-[rgba(37,34,32,0.88)] border border-[rgba(255,255,255,0.4)] dark:border-[rgba(255,255,255,0.08)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        // Mobile: bottom sheet
+        "max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:top-auto max-md:w-full max-md:max-h-[85dvh] max-md:overflow-y-auto max-md:rounded-t-2xl max-md:rounded-b-none max-md:p-5 max-md:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=open]:slide-in-from-bottom",
+        // Desktop: centered dialog (existing behavior)
+        "md:left-[50%] md:top-[50%] md:w-[calc(100%-2rem)] md:max-w-lg md:translate-x-[-50%] md:translate-y-[-50%] md:rounded-2xl md:p-6 md:data-[state=closed]:zoom-out-95 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:slide-out-to-left-1/2 md:data-[state=closed]:slide-out-to-top-[48%] md:data-[state=open]:slide-in-from-left-1/2 md:data-[state=open]:slide-in-from-top-[48%]",
         className
       )}
       {...props}
     >
+      {/* Mobile drag indicator pill */}
+      <div className="sheet-pill md:hidden" />
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[--ring] focus:ring-offset-2 disabled:pointer-events-none">
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[--ring] focus:ring-offset-2 disabled:pointer-events-none min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center md:block">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

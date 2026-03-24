@@ -3,9 +3,10 @@ import { prisma } from "@/lib/prisma"
 import { OWNER_USER_ID } from "@/lib/auth"
 import { Topbar } from "@/components/layout/topbar"
 import { NoteDetail } from "@/components/notes/note-detail"
+import { NoteActions } from "@/components/notes/note-actions"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { ArrowLeft, Pencil } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -36,9 +37,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ id:
             <Button variant="ghost" size="sm" asChild>
               <Link href="/notes"><ArrowLeft className="w-4 h-4" /></Link>
             </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/notes/${note.id}/edit`}><Pencil className="w-4 h-4" />编辑</Link>
-            </Button>
+            <NoteActions noteId={note.id} />
           </div>
         }
       />

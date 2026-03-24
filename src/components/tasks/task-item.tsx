@@ -5,6 +5,7 @@ import { TagChip } from "@/components/shared/tag-chip"
 import { TaskDetailDialog } from "./task-detail-dialog"
 import { cn, getDueLabel, isOverdue, PRIORITY_COLORS } from "@/lib/utils"
 import { CheckSquare, Square, Loader, ChevronDown, ChevronRight, Clock, AlertCircle } from "lucide-react"
+import { useT } from "@/contexts/locale-context"
 import type { Task, TaskTag, Tag, SubTask } from "@prisma/client"
 
 type TaskWithRelations = Task & {
@@ -26,22 +27,23 @@ const STATUS_COLOR = {
   DONE: "text-[--primary] hover:text-[--primary]/80",
 }
 
-const STATUS_LABEL = {
-  TODO: "待办",
-  DOING: "进行中",
-  DONE: "已完成",
-}
-
 interface TaskItemProps {
   task: TaskWithRelations
   allTags?: Tag[]
 }
 
 export function TaskItem({ task, allTags = [] }: TaskItemProps) {
+  const t = useT()
   const [expanded, setExpanded] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const [status, setStatus] = useState<Status>((task.status as Status) ?? "TODO")
   const [isPending, startTransition] = useTransition()
+
+  const STATUS_LABEL: Record<Status, string> = {
+    TODO: t.tasks.statusTodo,
+    DOING: t.tasks.statusDoing,
+    DONE: t.tasks.statusDone,
+  }
 
   const isDone = status === "DONE"
   const isDoing = status === "DOING"
@@ -63,23 +65,24 @@ export function TaskItem({ task, allTags = [] }: TaskItemProps) {
       <div
         onClick={() => setDetailOpen(true)}
         className={cn(
-          "group flex gap-3 p-3 rounded-lg border transition-colors cursor-pointer",
+          "group flex gap-3 p-3 rounded-xl border transition-all cursor-pointer card-hover",
+          "backdrop-blur-md shadow-[0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5)]",
           isDone
-            ? "border-[--border] opacity-60"
+            ? "bg-white/30 dark:bg-white/[0.02] border-white/40 dark:border-white/[0.05] opacity-60"
             : isDoing
-            ? "border-amber-200 bg-amber-50/50 dark:border-amber-900/30 dark:bg-amber-950/10"
+            ? "bg-amber-50/60 dark:bg-amber-900/15 border-amber-200/60 dark:border-amber-800/30"
             : overdue
-            ? "border-red-200 bg-red-50/50 dark:border-red-900/30 dark:bg-red-950/10"
-            : "border-[--border] bg-[--card] hover:bg-[--accent]"
+            ? "bg-red-50/60 dark:bg-red-900/15 border-red-200/60 dark:border-red-800/30"
+            : "bg-white/50 dark:bg-white/[0.04] border-white/60 dark:border-white/[0.07] hover:bg-white/70 dark:hover:bg-white/[0.06]"
         )}
       >
         <button
           onClick={handleCycle}
           disabled={isPending}
-          title={`点击切换状态（当前：${STATUS_LABEL[status]}）`}
-          className={cn("mt-0.5 flex-shrink-0 transition-colors", STATUS_COLOR[status])}
+          title={t.taskDetail.statusCycleTitle(STATUS_LABEL[status])}
+          className={cn("flex-shrink-0 transition-colors flex items-center justify-center min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 md:mt-0.5 -ml-2 md:ml-0", STATUS_COLOR[status])}
         >
-          <Icon className="w-4 h-4" />
+          <Icon className="w-5 h-5 md:w-4 md:h-4" />
         </button>
 
         <div className="flex-1 min-w-0">
@@ -90,7 +93,7 @@ export function TaskItem({ task, allTags = [] }: TaskItemProps) {
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {isDoing && (
                 <span className="text-xs text-amber-600 dark:text-amber-400 font-medium bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
-                  进行中
+                  {t.tasks.statusDoing}
                 </span>
               )}
               {task.priority !== "MEDIUM" && (
@@ -119,7 +122,7 @@ export function TaskItem({ task, allTags = [] }: TaskItemProps) {
               className="flex items-center gap-1 text-xs text-[--muted-foreground] mt-1.5 hover:text-[--foreground]"
             >
               {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              {task.subTasks.filter((s) => s.done).length}/{task.subTasks.length} 子任务
+              {t.taskDetail.subtasksCount(task.subTasks.filter((s) => s.done).length, task.subTasks.length)}
             </button>
           )}
 

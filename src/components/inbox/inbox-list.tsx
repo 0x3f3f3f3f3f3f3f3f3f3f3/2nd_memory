@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/shared/empty-state"
 import { Inbox, CheckSquare, BookOpen, Layers, Trash2, Loader2 } from "lucide-react"
 import { formatRelative } from "@/lib/utils"
+import { useT } from "@/contexts/locale-context"
 import type { InboxItem } from "@prisma/client"
 
 export function InboxList({ items }: { items: InboxItem[] }) {
+  const t = useT()
   const [isPending, startTransition] = useTransition()
 
   const handleProcess = (id: string, type: "TASK" | "NOTE" | "BOTH") => {
@@ -26,8 +28,8 @@ export function InboxList({ items }: { items: InboxItem[] }) {
     return (
       <EmptyState
         icon={<Inbox className="w-12 h-12" />}
-        title="收件箱是空的"
-        description="用右上角的「快速记录」把想法丢进来"
+        title={t.inbox.emptyTitle}
+        description={t.inbox.emptyDesc}
       />
     )
   }
@@ -35,7 +37,7 @@ export function InboxList({ items }: { items: InboxItem[] }) {
   return (
     <div className="space-y-3 max-w-2xl">
       {items.map((item) => (
-        <div key={item.id} className="p-4 rounded-xl border border-[--border] bg-[--card] space-y-3">
+        <div key={item.id} className="p-4 rounded-xl space-y-3 card-hover bg-white/50 dark:bg-white/[0.04] border border-white/60 dark:border-white/[0.07] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5)]">
           <div className="flex items-start gap-3">
             <Inbox className="w-4 h-4 text-[--muted-foreground] mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">
@@ -43,18 +45,18 @@ export function InboxList({ items }: { items: InboxItem[] }) {
               <p className="text-xs text-[--muted-foreground] mt-1">{formatRelative(item.capturedAt)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap pl-7">
-            <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => handleProcess(item.id, "TASK")} disabled={isPending}>
-              <CheckSquare className="w-3.5 h-3.5" />转为任务
+          <div className="grid grid-cols-2 gap-2 md:flex md:items-center md:gap-2 md:flex-wrap pl-7">
+            <Button size="sm" variant="outline" className="gap-1.5 h-9 md:h-7 text-xs" onClick={() => handleProcess(item.id, "TASK")} disabled={isPending}>
+              <CheckSquare className="w-3.5 h-3.5" />{t.inbox.toTask}
             </Button>
-            <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => handleProcess(item.id, "NOTE")} disabled={isPending}>
-              <BookOpen className="w-3.5 h-3.5" />转为笔记
+            <Button size="sm" variant="outline" className="gap-1.5 h-9 md:h-7 text-xs" onClick={() => handleProcess(item.id, "NOTE")} disabled={isPending}>
+              <BookOpen className="w-3.5 h-3.5" />{t.inbox.toNote}
             </Button>
-            <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs" onClick={() => handleProcess(item.id, "BOTH")} disabled={isPending}>
-              <Layers className="w-3.5 h-3.5" />同时生成
+            <Button size="sm" variant="outline" className="gap-1.5 h-9 md:h-7 text-xs" onClick={() => handleProcess(item.id, "BOTH")} disabled={isPending}>
+              <Layers className="w-3.5 h-3.5" />{t.inbox.toBoth}
             </Button>
-            <Button size="sm" variant="ghost" className="gap-1.5 h-7 text-xs text-[--destructive] hover:text-[--destructive]" onClick={() => handleDelete(item.id)} disabled={isPending}>
-              <Trash2 className="w-3.5 h-3.5" />删除
+            <Button size="sm" variant="ghost" className="gap-1.5 h-9 md:h-7 text-xs text-[--destructive] hover:text-[--destructive]" onClick={() => handleDelete(item.id)} disabled={isPending}>
+              <Trash2 className="w-3.5 h-3.5" />{t.inbox.deleteBtn}
             </Button>
           </div>
         </div>

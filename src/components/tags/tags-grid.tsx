@@ -22,7 +22,7 @@ export function TagsGrid({ tags }: { tags: TagWithCount[] }) {
         <Link
           key={tag.id}
           href={`/tags/${tag.slug}`}
-          className="group block p-4 rounded-xl border border-[--border] bg-[--card] hover:shadow-sm transition-all"
+          className="group block p-4 rounded-xl card-hover bg-white/50 dark:bg-white/[0.04] border border-white/60 dark:border-white/[0.07] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5)]"
           style={{ borderLeftColor: tag.color, borderLeftWidth: 3 }}
         >
           <div className="flex items-center gap-2 mb-3">
