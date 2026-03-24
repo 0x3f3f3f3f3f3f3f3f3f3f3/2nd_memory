@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { OWNER_USER_ID } from "@/lib/auth"
+import { getCurrentUserId } from "@/lib/auth"
 import { Topbar } from "@/components/layout/topbar"
 import { NoteForm } from "@/components/notes/note-form"
 import { Button } from "@/components/ui/button"
@@ -9,12 +9,12 @@ import { ArrowLeft } from "lucide-react"
 export const metadata = { title: "新建笔记" }
 
 export default async function NewNotePage() {
-  const tags = await prisma.tag.findMany({ where: { userId: OWNER_USER_ID }, orderBy: { sortOrder: "asc" } })
+  const userId = await getCurrentUserId()
+  const tags = await prisma.tag.findMany({ where: { userId: userId }, orderBy: { sortOrder: "asc" } })
 
   return (
     <div className="flex flex-col">
       <Topbar
-        title="新建笔记"
         actions={
           <Button variant="ghost" size="sm" asChild>
             <Link href="/notes"><ArrowLeft className="w-4 h-4" />返回</Link>

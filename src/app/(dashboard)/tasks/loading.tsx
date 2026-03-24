@@ -4,7 +4,7 @@ import { TaskSkeleton } from "@/components/shared/loading-skeleton"
 export default function Loading() {
   return (
     <div className="flex flex-col">
-      <Topbar title="任务" />
+      <Topbar />
       <div className="flex-1 p-4 md:p-6">
         <TaskSkeleton />
       </div>

@@ -17,7 +17,8 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { TaskItem } from "./task-item"
+import { TaskItem, type TaskWithRelations } from "./task-item"
+import { TaskDetailSidebar } from "./task-detail-sidebar"
 import { Input } from "@/components/ui/input"
 import { TagChip } from "@/components/shared/tag-chip"
 import { EmptyState } from "@/components/shared/empty-state"
@@ -25,14 +26,9 @@ import { reorderTasks } from "@/lib/actions/tasks"
 import { cn } from "@/lib/utils"
 import { Search, CheckSquare, GripVertical } from "lucide-react"
 import { useT } from "@/contexts/locale-context"
-import type { Task, TaskTag, Tag, SubTask } from "@prisma/client"
+import type { Tag } from "@prisma/client"
 
-type TaskWithRelations = Task & {
-  taskTags: (TaskTag & { tag: Tag })[]
-  subTasks: SubTask[]
-}
-
-function SortableTaskItem({ task, allTags }: { task: TaskWithRelations; allTags: Tag[] }) {
+function SortableTaskItem({ task, allTags, onSelect }: { task: TaskWithRelations; allTags: Tag[]; onSelect?: (task: TaskWithRelations) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   })
@@ -53,7 +49,7 @@ function SortableTaskItem({ task, allTags }: { task: TaskWithRelations; allTags:
         <GripVertical className="w-4 h-4" />
       </button>
       <div className="flex-1 min-w-0">
-        <TaskItem task={task} allTags={allTags} />
+        <TaskItem task={task} allTags={allTags} onSelect={onSelect} />
       </div>
     </div>
   )
@@ -65,6 +61,7 @@ export function TaskList({ tasks, tags }: { tasks: TaskWithRelations[]; tags: Ta
   const [activeStatus, setActiveStatus] = useState("all")
   const [activeTag, setActiveTag] = useState<string | null>(null)
   const [localTasks, setLocalTasks] = useState(tasks)
+  const [selectedTask, setSelectedTask] = useState<TaskWithRelations | null>(null)
 
   useEffect(() => {
     setLocalTasks(tasks)
@@ -172,7 +169,7 @@ export function TaskList({ tasks, tags }: { tasks: TaskWithRelations[]; tags: Ta
           <SortableContext items={filtered.map((t) => t.id)} strategy={verticalListSortingStrategy}>
             <div className="space-y-2">
               {filtered.map((task) => (
-                <SortableTaskItem key={task.id} task={task} allTags={tags} />
+                <SortableTaskItem key={task.id} task={task} allTags={tags} onSelect={setSelectedTask} />
               ))}
             </div>
           </SortableContext>
@@ -186,6 +183,12 @@ export function TaskList({ tasks, tags }: { tasks: TaskWithRelations[]; tags: Ta
       )}
 
       <p className="text-xs text-[--muted-foreground]">{t.tasks.countLabel(filtered.length)}</p>
+
+      <TaskDetailSidebar
+        task={selectedTask}
+        allTags={tags}
+        onClose={() => setSelectedTask(null)}
+      />
     </div>
   )
 }

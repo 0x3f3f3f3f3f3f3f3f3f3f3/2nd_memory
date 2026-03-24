@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import { OWNER_USER_ID } from "@/lib/auth"
+import { getCurrentUserId } from "@/lib/auth"
 import { Topbar } from "@/components/layout/topbar"
 import { NoteDetail } from "@/components/notes/note-detail"
 import { NoteActions } from "@/components/notes/note-actions"
@@ -10,14 +10,16 @@ import { ArrowLeft } from "lucide-react"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const note = await prisma.note.findUnique({ where: { id, userId: OWNER_USER_ID } })
+  const userId = await getCurrentUserId()
+  const note = await prisma.note.findUnique({ where: { id, userId } })
   return { title: note?.title ?? "笔记详情" }
 }
 
 export default async function NoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const userId = await getCurrentUserId()
   const note = await prisma.note.findUnique({
-    where: { id, userId: OWNER_USER_ID },
+    where: { id, userId },
     include: {
       noteTags: { include: { tag: true } },
       noteTasks: { include: { task: true } },
@@ -25,7 +27,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ id:
   })
   if (!note) notFound()
 
-  const tags = await prisma.tag.findMany({ where: { userId: OWNER_USER_ID } })
+  const tags = await prisma.tag.findMany({ where: { userId: userId } })
 
   return (
     <div className="flex flex-col">

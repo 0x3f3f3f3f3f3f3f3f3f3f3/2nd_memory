@@ -516,6 +516,30 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
   const [pendingDayTasks, setPendingDayTasks] = useState<Array<{
     tempId: string; taskId: string; dayIdx: number
   }>>([])
+
+  // Remove pending blocks once the real server data arrives (avoids flash gap)
+  useEffect(() => {
+    setPendingBlocks(prev => prev.filter(pb => {
+      const task = tasks.find(t => t.id === pb.taskId)
+      if (!task) return false
+      const realExists = (task.timeBlocks ?? []).some(b => {
+        const diff = Math.abs(new Date(b.startAt).getTime() - pb.startAt.getTime())
+        return !b.isAllDay && diff < 60_000
+      })
+      return !realExists
+    }))
+    setPendingDayTasks(prev => prev.filter(pt => {
+      const day = weekDays[pt.dayIdx]
+      if (!day) return false
+      const task = tasks.find(t => t.id === pt.taskId)
+      if (!task) return false
+      const dayChina = toChina(day)
+      const realExists = (task.timeBlocks ?? []).some(
+        b => b.isAllDay && isSameDay(toChina(new Date(b.startAt)), dayChina)
+      )
+      return !realExists
+    }))
+  }, [tasks])
   const [selectedDayIdx, setSelectedDayIdx] = useState(() => {
     const todayIdx = weekDays.findIndex(d => isToday(d))
     return todayIdx >= 0 ? todayIdx : 0
@@ -698,9 +722,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
         if (getUniqueTasksForDay(baseDay).some(tk => tk.id === task.id)) return
         const tempId = `pending-day-${Date.now()}`
         setPendingDayTasks(prev => [...prev, { tempId, taskId: task.id, dayIdx: col }])
-        createAllDayBlock(task.id, format(baseDay, "yyyy-MM-dd")).then(() => {
-          setPendingDayTasks(prev => prev.filter(p => p.tempId !== tempId))
-        }).catch(() => {
+        createAllDayBlock(task.id, format(baseDay, "yyyy-MM-dd")).catch(() => {
           setPendingDayTasks(prev => prev.filter(p => p.tempId !== tempId))
         })
       } else {
@@ -709,9 +731,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
         const newEnd   = applyMin(baseDay, min + DEFAULT_DUR)
         const tempId = `pending-${Date.now()}`
         setPendingBlocks(prev => [...prev, { tempId, taskId: task.id, startAt: newStart, endAt: newEnd }])
-        createTimeBlock(task.id, newStart, newEnd).then(() => {
-          setPendingBlocks(prev => prev.filter(pb => pb.tempId !== tempId))
-        }).catch(() => {
+        createTimeBlock(task.id, newStart, newEnd).catch(() => {
           setPendingBlocks(prev => prev.filter(pb => pb.tempId !== tempId))
         })
       }
@@ -881,7 +901,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
             style={{ height: CHIP_ROW_H }}
           >
             <div className="w-12 flex-shrink-0 flex items-start justify-end pt-2 pr-2">
-              <p className="text-[8px] text-[--muted-foreground]/30 font-medium tracking-wider">任务</p>
+              <p className="text-[8px] text-[--muted-foreground]/30 font-medium tracking-wider">{t.timeline.taskPanelTitle}</p>
             </div>
             {weekDays.map((day, i) => {
               const dayTasks = getUniqueTasksForDay(day)

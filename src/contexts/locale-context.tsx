@@ -1,6 +1,5 @@
 "use client"
 import { createContext, useContext, useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import { type Locale, type T, getT } from "@/lib/i18n"
 
 interface LocaleContextValue {
@@ -19,6 +18,12 @@ const LocaleContext = createContext<LocaleContextValue>({
   setTimezone: () => {},
 })
 
+function getCookieLocale(): Locale {
+  if (typeof document === "undefined") return "zh"
+  const m = document.cookie.match(/(?:^|;\s*)locale=([^;]+)/)
+  return (m?.[1] === "en" ? "en" : "zh") as Locale
+}
+
 export function LocaleProvider({
   children,
   initialLocale,
@@ -28,8 +33,10 @@ export function LocaleProvider({
   initialLocale: Locale
   initialTimezone: string
 }) {
-  const router = useRouter()
-  const [locale, setLocaleState] = useState<Locale>(initialLocale)
+  // Use cookie directly on client to avoid zh→en flash during hydration
+  const [locale, setLocaleState] = useState<Locale>(() =>
+    typeof document !== "undefined" ? getCookieLocale() : initialLocale
+  )
   const [timezone, setTimezone_] = useState<string>(initialTimezone)
 
   // On mount: detect actual device timezone, sync to cookie if different
@@ -44,7 +51,7 @@ export function LocaleProvider({
   const setLocale = (l: Locale) => {
     document.cookie = `locale=${l}; path=/; max-age=31536000; SameSite=Lax`
     setLocaleState(l)
-    router.refresh()
+    window.location.reload()
   }
 
   const setTimezone = (tz: string) => {

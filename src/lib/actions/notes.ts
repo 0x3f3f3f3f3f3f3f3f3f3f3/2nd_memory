@@ -1,7 +1,7 @@
 "use server"
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
-import { OWNER_USER_ID } from "@/lib/auth"
+import { getCurrentUserId } from "@/lib/auth"
 import { z } from "zod"
 import { slugify } from "@/lib/utils"
 
@@ -16,17 +16,18 @@ const NoteSchema = z.object({
 })
 
 export async function createNote(data: z.input<typeof NoteSchema>) {
+  const userId = await getCurrentUserId()
   const parsed = NoteSchema.parse(data)
   const baseSlug = slugify(parsed.title) || "note"
   let slug = baseSlug
   let counter = 1
-  while (await prisma.note.findUnique({ where: { userId_slug: { userId: OWNER_USER_ID, slug } } })) {
+  while (await prisma.note.findUnique({ where: { userId_slug: { userId, slug } } })) {
     slug = `${baseSlug}-${counter++}`
   }
 
   const note = await prisma.note.create({
     data: {
-      userId: OWNER_USER_ID,
+      userId,
       title: parsed.title,
       slug,
       summary: parsed.summary,
@@ -45,9 +46,10 @@ export async function createNote(data: z.input<typeof NoteSchema>) {
 }
 
 export async function updateNote(id: string, data: Partial<z.input<typeof NoteSchema>>) {
+  const userId = await getCurrentUserId()
   const { tagIds, ...rest } = data
   const note = await prisma.note.update({
-    where: { id, userId: OWNER_USER_ID },
+    where: { id, userId },
     data: {
       ...rest,
       ...(tagIds !== undefined && {
@@ -65,6 +67,7 @@ export async function updateNote(id: string, data: Partial<z.input<typeof NoteSc
 }
 
 export async function deleteNote(id: string) {
-  await prisma.note.delete({ where: { id, userId: OWNER_USER_ID } })
+  const userId = await getCurrentUserId()
+  await prisma.note.delete({ where: { id, userId } })
   revalidatePath("/notes")
 }

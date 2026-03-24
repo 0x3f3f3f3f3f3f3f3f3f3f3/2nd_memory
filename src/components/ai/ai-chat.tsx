@@ -52,8 +52,22 @@ export function AiChat() {
         throw new Error(err.error || `HTTP ${res.status}`)
       }
 
-      const data = await res.json()
-      setMessages([...newMessages, { role: "assistant", content: data.content }])
+      // Stream response — text appears word by word
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let content = ""
+      setMessages([...newMessages, { role: "assistant", content: "" }])
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        content += decoder.decode(value, { stream: true })
+        setMessages([...newMessages, { role: "assistant", content }])
+      }
+
+      if (!content.trim()) {
+        setMessages([...newMessages, { role: "assistant", content: locale === "en" ? "No response." : "AI 未返回内容。" }])
+      }
     } catch (err: any) {
       setMessages([
         ...newMessages,
@@ -195,10 +209,10 @@ export function AiChat() {
       </div>
 
       {/* Input area */}
-      <div className="flex-shrink-0 px-4 pt-2 pb-24 md:pb-4 safe-area-pb">
+      <div className="flex-shrink-0 px-4 pt-2 pb-24 md:pb-8 safe-area-pb">
         <div className={cn(
-          "flex items-end gap-2 max-w-2xl mx-auto",
-          "rounded-2xl px-4 py-2.5",
+          "flex items-center gap-2 max-w-2xl mx-auto",
+          "rounded-2xl px-4 py-2",
           "bg-white/55 dark:bg-white/[0.04]",
           "border border-white/60 dark:border-white/[0.08]",
           "backdrop-blur-md",
@@ -210,7 +224,7 @@ export function AiChat() {
           {messages.length > 0 && (
             <button
               onClick={() => setMessages([])}
-              className="flex-shrink-0 p-2.5 md:p-1.5 rounded-lg hover:bg-[--foreground]/[0.05] transition-colors text-[--muted-foreground] hover:text-[--foreground] mb-0.5"
+              className="flex-shrink-0 p-2.5 md:p-1.5 rounded-lg hover:bg-[--foreground]/[0.05] transition-colors text-[--muted-foreground] hover:text-[--foreground] "
               title={t.ai.clearChat}
             >
               <Trash2 className="w-4 h-4" />
@@ -229,7 +243,7 @@ export function AiChat() {
             onClick={() => sendMessage()}
             disabled={!input.trim() || loading}
             className={cn(
-              "flex-shrink-0 w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center transition-all duration-150 mb-0.5",
+              "flex-shrink-0 w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center transition-all duration-150 ",
               input.trim() && !loading
                 ? "bg-[--primary] text-[--primary-foreground] shadow-sm hover:opacity-90 active:scale-95"
                 : "bg-[--foreground]/[0.05] text-[--muted-foreground]/40",

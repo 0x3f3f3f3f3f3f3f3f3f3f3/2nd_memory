@@ -27,6 +27,7 @@ const zh = {
     inboxMobile: "收件箱",
     scheduleMobile: "规划",
     more: "更多",
+    personalSpace: "个人空间",
   },
 
   today: {
@@ -114,6 +115,7 @@ const zh = {
   notes: {
     pageTitle: "知识库",
     newNote: "新建笔记",
+    editNote: "编辑笔记",
     searchPlaceholder: "搜索笔记...",
     filterAll: "全部",
     emptyTitle: "暂无笔记",
@@ -239,6 +241,7 @@ const en: T = {
     inboxMobile: "Inbox",
     scheduleMobile: "Schedule",
     more: "More",
+    personalSpace: "Personal Space",
   },
 
   today: {
@@ -326,6 +329,7 @@ const en: T = {
   notes: {
     pageTitle: "Notes",
     newNote: "New Note",
+    editNote: "Edit Note",
     searchPlaceholder: "Search notes...",
     filterAll: "All",
     emptyTitle: "No notes yet",

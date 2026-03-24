@@ -1,12 +1,13 @@
 "use server"
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
-import { OWNER_USER_ID } from "@/lib/auth"
+import { getCurrentUserId } from "@/lib/auth"
 import { slugify } from "@/lib/utils"
 
 export async function addToInbox(content: string) {
+  const userId = await getCurrentUserId()
   const item = await prisma.inboxItem.create({
-    data: { userId: OWNER_USER_ID, content },
+    data: { userId, content },
   })
   revalidatePath("/inbox")
   revalidatePath("/today")
@@ -18,6 +19,7 @@ export async function processInboxItem(
   processType: "TASK" | "NOTE" | "BOTH",
   extra?: { title?: string }
 ) {
+  const userId = await getCurrentUserId()
   const item = await prisma.inboxItem.findUnique({ where: { id } })
   if (!item) return
 
@@ -25,7 +27,7 @@ export async function processInboxItem(
 
   if (processType === "TASK" || processType === "BOTH") {
     await prisma.task.create({
-      data: { userId: OWNER_USER_ID, title, description: item.content, status: "TODO" },
+      data: { userId, title, description: item.content, status: "TODO" },
     })
   }
 
@@ -33,12 +35,12 @@ export async function processInboxItem(
     const baseSlug = slugify(title) || "note"
     let slug = baseSlug
     let counter = 1
-    while (await prisma.note.findUnique({ where: { userId_slug: { userId: OWNER_USER_ID, slug } } })) {
+    while (await prisma.note.findUnique({ where: { userId_slug: { userId, slug } } })) {
       slug = `${baseSlug}-${counter++}`
     }
     await prisma.note.create({
       data: {
-        userId: OWNER_USER_ID,
+        userId,
         title,
         slug,
         contentMd: item.content,

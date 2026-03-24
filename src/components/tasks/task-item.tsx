@@ -2,13 +2,12 @@
 import { useState, useTransition } from "react"
 import { cycleTaskStatus } from "@/lib/actions/tasks"
 import { TagChip } from "@/components/shared/tag-chip"
-import { TaskDetailDialog } from "./task-detail-dialog"
 import { cn, getDueLabel, isOverdue, PRIORITY_COLORS } from "@/lib/utils"
 import { CheckSquare, Square, Loader, ChevronDown, ChevronRight, Clock, AlertCircle } from "lucide-react"
 import { useT } from "@/contexts/locale-context"
 import type { Task, TaskTag, Tag, SubTask } from "@prisma/client"
 
-type TaskWithRelations = Task & {
+export type TaskWithRelations = Task & {
   taskTags: (TaskTag & { tag: Tag })[]
   subTasks: SubTask[]
 }
@@ -30,12 +29,12 @@ const STATUS_COLOR = {
 interface TaskItemProps {
   task: TaskWithRelations
   allTags?: Tag[]
+  onSelect?: (task: TaskWithRelations) => void
 }
 
-export function TaskItem({ task, allTags = [] }: TaskItemProps) {
+export function TaskItem({ task, allTags = [], onSelect }: TaskItemProps) {
   const t = useT()
   const [expanded, setExpanded] = useState(false)
-  const [detailOpen, setDetailOpen] = useState(false)
   const [status, setStatus] = useState<Status>((task.status as Status) ?? "TODO")
   const [isPending, startTransition] = useTransition()
 
@@ -63,7 +62,7 @@ export function TaskItem({ task, allTags = [] }: TaskItemProps) {
   return (
     <>
       <div
-        onClick={() => setDetailOpen(true)}
+        onClick={() => onSelect?.(task)}
         className={cn(
           "group flex gap-3 p-3 rounded-xl border transition-all cursor-pointer card-hover",
           "backdrop-blur-md shadow-[0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5)]",
@@ -137,13 +136,6 @@ export function TaskItem({ task, allTags = [] }: TaskItemProps) {
           )}
         </div>
       </div>
-
-      <TaskDetailDialog
-        task={{ ...task, status: status as any }}
-        allTags={allTags}
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-      />
     </>
   )
 }

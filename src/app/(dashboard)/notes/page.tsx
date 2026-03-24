@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { OWNER_USER_ID } from "@/lib/auth"
+import { getCurrentUserId } from "@/lib/auth"
 import { Topbar } from "@/components/layout/topbar"
 import { NoteList } from "@/components/notes/note-list"
 import Link from "next/link"
@@ -17,11 +17,12 @@ export default async function NotesPage({
   const { t } = await getServerT()
   const params = await searchParams
   const { q, type, tag } = params
+  const userId = await getCurrentUserId()
 
   const [notes, tags] = await Promise.all([
     prisma.note.findMany({
       where: {
-        userId: OWNER_USER_ID,
+        userId: userId,
         archivedAt: null,
         ...(q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { summary: { contains: q, mode: "insensitive" } }] } : {}),
         ...(type ? { type: type as any } : {}),
@@ -30,13 +31,12 @@ export default async function NotesPage({
       include: { noteTags: { include: { tag: true } } },
       orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
     }),
-    prisma.tag.findMany({ where: { userId: OWNER_USER_ID }, orderBy: { sortOrder: "asc" } }),
+    prisma.tag.findMany({ where: { userId: userId }, orderBy: { sortOrder: "asc" } }),
   ])
 
   return (
     <div className="flex flex-col">
       <Topbar
-        title={t.notes.pageTitle}
         actions={
           <Button size="sm" asChild>
             <Link href="/notes/new">

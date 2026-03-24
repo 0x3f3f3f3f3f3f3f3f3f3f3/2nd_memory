@@ -1,52 +1,104 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { cookies } from "next/headers"
+import { redirect } from "next/navigation"
+import { getIronSession } from "iron-session"
+import bcrypt from "bcryptjs"
+import { prisma } from "@/lib/prisma"
 
-const SESSION_COOKIE = 'mg_session'
-const SESSION_VALUE = 'authenticated'
+interface SessionData {
+  userId?: string
+  username?: string
+}
 
-// DEV BYPASS: set DEV_AUTO_LOGIN=true in .env to skip password in development
-// IMPORTANT: Never enable this in production
-const DEV_AUTO_LOGIN = process.env.DEV_AUTO_LOGIN === 'true' && process.env.NODE_ENV === 'development'
-
-export async function login(password: string): Promise<{ success: boolean; error?: string }> {
-  const expectedPassword = process.env.OWNER_PASSWORD
-  if (!expectedPassword) {
-    return { success: false, error: '服务器未配置密码，请联系管理员' }
-  }
-  if (password !== expectedPassword) {
-    return { success: false, error: '密码错误' }
-  }
-
-  const cookieStore = await cookies()
-  cookieStore.set(SESSION_COOKIE, SESSION_VALUE, {
+const sessionOptions = {
+  password: process.env.SESSION_SECRET!,
+  cookieName: "mg_session",
+  cookieOptions: {
     httpOnly: true,
-    secure: process.env.NEXT_PUBLIC_APP_URL?.startsWith('https') ?? false,
-    sameSite: 'lax',
+    secure: process.env.NEXT_PUBLIC_APP_URL?.startsWith("https") ?? false,
+    sameSite: "lax" as const,
     maxAge: 60 * 60 * 24 * 30, // 30 days
-    path: '/',
+  },
+}
+
+export async function getSession() {
+  const cookieStore = await cookies()
+  return getIronSession<SessionData>(cookieStore, sessionOptions)
+}
+
+export async function getCurrentUserId(): Promise<string> {
+  const session = await getSession()
+  if (!session.userId) {
+    redirect("/login")
+  }
+  return session.userId
+}
+
+export async function getCurrentUser(): Promise<{ userId: string; username: string }> {
+  const session = await getSession()
+  if (!session.userId || !session.username) {
+    redirect("/login")
+  }
+  return { userId: session.userId, username: session.username }
+}
+
+export async function login(
+  username: string,
+  password: string
+): Promise<{ success: boolean; error?: string }> {
+  const user = await prisma.user.findUnique({ where: { name: username } })
+  if (!user) {
+    return { success: false, error: "用户不存在" }
+  }
+
+  const valid = await bcrypt.compare(password, user.password)
+  if (!valid) {
+    return { success: false, error: "密码错误" }
+  }
+
+  const session = await getSession()
+  session.userId = user.id
+  session.username = user.name
+  await session.save()
+
+  return { success: true }
+}
+
+export async function register(
+  username: string,
+  password: string
+): Promise<{ success: boolean; error?: string }> {
+  const existing = await prisma.user.findUnique({ where: { name: username } })
+  if (existing) {
+    return { success: false, error: "用户名已存在" }
+  }
+
+  const hash = await bcrypt.hash(password, 10)
+  const user = await prisma.user.create({
+    data: { name: username, password: hash },
   })
+
+  const session = await getSession()
+  session.userId = user.id
+  session.username = user.name
+  await session.save()
 
   return { success: true }
 }
 
 export async function logout() {
-  const cookieStore = await cookies()
-  cookieStore.delete(SESSION_COOKIE)
-  redirect('/login')
+  const session = await getSession()
+  session.destroy()
+  redirect("/login")
 }
 
 export async function isAuthenticated(): Promise<boolean> {
-  if (DEV_AUTO_LOGIN) return true
-  const cookieStore = await cookies()
-  return cookieStore.get(SESSION_COOKIE)?.value === SESSION_VALUE
+  const session = await getSession()
+  return !!session.userId
 }
 
 export async function requireAuth() {
   const authed = await isAuthenticated()
   if (!authed) {
-    redirect('/login')
+    redirect("/login")
   }
 }
-
-// Hardcoded single user ID for private app
-export const OWNER_USER_ID = 'owner'

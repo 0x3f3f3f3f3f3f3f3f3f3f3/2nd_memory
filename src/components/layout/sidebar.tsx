@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 import { useI18n } from "@/contexts/locale-context"
 
-export function Sidebar() {
+export function Sidebar({ username }: { username: string }) {
   const pathname = usePathname()
   const { t, locale, setLocale } = useI18n()
 
@@ -74,9 +74,15 @@ export function Sidebar() {
       <div className="gradient-divider mx-3" />
 
       {/* User info */}
-      <div className="px-4 py-3 flex items-center gap-2.5">
+      <div className="mx-2 mb-1 px-3 py-2.5 rounded-xl flex items-center gap-2.5 bg-white/30 dark:bg-white/[0.04] border border-white/50 dark:border-white/[0.07]">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#C96444] to-[#E08060] flex items-center justify-center flex-shrink-0 shadow-[0_2px_8px_rgba(201,100,68,0.3)]">
+          <span className="text-[11px] font-bold text-white leading-none">
+            {username.charAt(0).toUpperCase()}
+          </span>
+        </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium truncate">admin</p>
+          <p className="text-xs font-semibold truncate">{username}</p>
+          <p className="text-[10px] text-[--muted-foreground]/60 truncate">{t.nav.personalSpace}</p>
         </div>
       </div>
 

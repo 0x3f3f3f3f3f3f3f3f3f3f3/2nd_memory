@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
-import { Moon, Sun, Monitor, Shield, Download, Globe, RotateCcw } from "lucide-react"
+import { Moon, Sun, Monitor, Shield, Globe, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/contexts/locale-context"
 
@@ -179,26 +179,19 @@ export function SettingsPanel() {
             <span>{t.settings.securityDesc}</span>
           </div>
           <Separator />
-          <form action="/api/auth/logout" method="POST">
-            <Button type="submit" variant="outline" className="text-[--destructive] border-[--destructive]/30 hover:bg-[--destructive]/10">
-              {t.settings.logoutBtn}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">{t.settings.data}</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-sm text-[--muted-foreground] mb-4">
-            {t.settings.dataDesc}
-          </p>
-          <Button variant="outline" className="gap-2">
-            <Download className="w-4 h-4" />
-            {t.settings.exportBtn}
+          <Button
+            variant="outline"
+            className="text-[--destructive] border-[--destructive]/30 hover:bg-[--destructive]/10"
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" })
+              window.location.href = "/login"
+            }}
+          >
+            {t.settings.logoutBtn}
           </Button>
         </CardContent>
       </Card>
+
     </div>
   )
 }

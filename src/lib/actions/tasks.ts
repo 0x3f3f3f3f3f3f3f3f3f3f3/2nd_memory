@@ -1,7 +1,7 @@
 "use server"
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
-import { OWNER_USER_ID } from "@/lib/auth"
+import { getCurrentUserId } from "@/lib/auth"
 import { z } from "zod"
 
 const TaskSchema = z.object({
@@ -17,10 +17,11 @@ const TaskSchema = z.object({
 })
 
 export async function createTask(data: z.input<typeof TaskSchema>) {
+  const userId = await getCurrentUserId()
   const parsed = TaskSchema.parse(data)
   const task = await prisma.task.create({
     data: {
-      userId: OWNER_USER_ID,
+      userId,
       title: parsed.title,
       description: parsed.description,
       status: parsed.status,
@@ -42,9 +43,10 @@ export async function createTask(data: z.input<typeof TaskSchema>) {
 }
 
 export async function updateTask(id: string, data: Partial<z.infer<typeof TaskSchema>>) {
+  const userId = await getCurrentUserId()
   const { tagIds, dueAt, reminderAt, ...rest } = data
   const task = await prisma.task.update({
-    where: { id, userId: OWNER_USER_ID },
+    where: { id, userId },
     data: {
       ...rest,
       dueAt: dueAt !== undefined ? (dueAt ? new Date(dueAt) : null) : undefined,
@@ -66,15 +68,17 @@ export async function updateTask(id: string, data: Partial<z.infer<typeof TaskSc
 }
 
 export async function deleteTask(id: string) {
-  await prisma.task.delete({ where: { id, userId: OWNER_USER_ID } })
+  const userId = await getCurrentUserId()
+  await prisma.task.delete({ where: { id, userId } })
   revalidatePath("/tasks")
   revalidatePath("/today")
   revalidatePath("/timeline")
 }
 
 export async function toggleTaskDone(id: string, done: boolean) {
+  const userId = await getCurrentUserId()
   await prisma.task.update({
-    where: { id, userId: OWNER_USER_ID },
+    where: { id, userId },
     data: {
       status: done ? "DONE" : "TODO",
       completedAt: done ? new Date() : null,
@@ -85,11 +89,12 @@ export async function toggleTaskDone(id: string, done: boolean) {
 }
 
 export async function cycleTaskStatus(id: string, currentStatus: string) {
+  const userId = await getCurrentUserId()
   const next =
     currentStatus === "TODO" ? "DOING" :
     currentStatus === "DOING" ? "DONE" : "TODO"
   await prisma.task.update({
-    where: { id, userId: OWNER_USER_ID },
+    where: { id, userId },
     data: {
       status: next,
       completedAt: next === "DONE" ? new Date() : null,
@@ -119,9 +124,10 @@ export async function deleteSubTask(id: string) {
 }
 
 export async function reorderTasks(orderedIds: string[]) {
+  const userId = await getCurrentUserId()
   await Promise.all(
     orderedIds.map((id, index) =>
-      prisma.task.update({ where: { id, userId: OWNER_USER_ID }, data: { sortOrder: index } })
+      prisma.task.update({ where: { id, userId }, data: { sortOrder: index } })
     )
   )
   revalidatePath("/tasks")

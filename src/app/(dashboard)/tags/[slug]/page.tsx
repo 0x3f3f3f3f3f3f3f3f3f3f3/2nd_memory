@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/prisma"
-import { OWNER_USER_ID } from "@/lib/auth"
+import { getCurrentUserId } from "@/lib/auth"
 import { Topbar } from "@/components/layout/topbar"
 import { TaskItem } from "@/components/tasks/task-item"
 import Link from "next/link"
@@ -9,8 +9,9 @@ import { Button } from "@/components/ui/button"
 
 export default async function TagPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
+  const userId = await getCurrentUserId()
   const tag = await prisma.tag.findUnique({
-    where: { userId_slug: { userId: OWNER_USER_ID, slug } },
+    where: { userId_slug: { userId: userId, slug } },
     include: {
       taskTags: {
         include: {

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { getSession } from "@/lib/auth"
 
 export async function POST() {
-  const cookieStore = await cookies()
-  cookieStore.delete("mg_session")
-  return NextResponse.redirect(new URL("/login", process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"))
+  const session = await getSession()
+  session.destroy()
+  return NextResponse.json({ ok: true })
 }
