@@ -9,7 +9,7 @@ function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>)
   )
 }
 
-const GLASS = "bg-white/45 dark:bg-white/[0.03] border border-white/50 dark:border-white/[0.06] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5)]"
+const GLASS = "bg-[var(--liquid-glass-bg)] border border-[var(--liquid-glass-border)] backdrop-blur-md shadow-[var(--liquid-glass-shadow-soft)]"
 
 export function TaskSkeleton() {
   return (
@@ -80,7 +80,7 @@ export function ReviewSkeleton() {
               <Skeleton className="h-5 w-14 rounded-full" />
               <Skeleton className="h-5 w-14 rounded-full" />
             </div>
-            <div className="flex gap-2 pt-1 border-t border-white/30 dark:border-white/[0.05]">
+            <div className="flex gap-2 pt-1 border-t border-[var(--liquid-glass-border-soft)]">
               <Skeleton className="h-7 w-14 rounded-lg" />
               <Skeleton className="h-7 w-14 rounded-lg" />
               <Skeleton className="h-7 w-14 rounded-lg" />
@@ -120,7 +120,7 @@ export function TimelineSkeleton() {
       {/* Week grid */}
       <div className={cn("rounded-3xl overflow-hidden", GLASS)}>
         {/* Header */}
-        <div className="grid grid-cols-[3rem_1fr_1fr_1fr_1fr_1fr_1fr_1fr] border-b border-white/30 dark:border-white/[0.06]">
+        <div className="grid grid-cols-[3rem_1fr_1fr_1fr_1fr_1fr_1fr_1fr] border-b border-[var(--liquid-glass-border-soft)]">
           <div className="w-12" />
           {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} className="py-2.5 flex flex-col items-center gap-1">
@@ -132,13 +132,13 @@ export function TimelineSkeleton() {
         {/* Body rows */}
         <div className="p-2 space-y-0">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex gap-1 py-2 border-b border-white/20 dark:border-white/[0.03] last:border-0">
+            <div key={i} className="flex gap-1 py-2 border-b border-[var(--liquid-glass-border-soft)] last:border-0">
               <div className="w-12 flex justify-end pr-2">
                 <Skeleton className="h-2.5 w-6" />
               </div>
               <div className="flex-1 flex gap-1">
-                {i === 1 && <Skeleton className="h-12 w-full rounded-xl" />}
-                {i === 3 && <Skeleton className="h-8 w-full rounded-xl" />}
+                {i === 1 && <Skeleton className="timeline-skeleton-event h-12 w-full rounded-xl" />}
+                {i === 3 && <Skeleton className="timeline-skeleton-event h-8 w-full rounded-xl" />}
               </div>
             </div>
           ))}
@@ -157,11 +157,11 @@ export function DdlSkeleton() {
       </div>
       {Array.from({ length: 3 }).map((_, i) => (
         <div key={i} className={cn("rounded-2xl overflow-hidden", GLASS)}>
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-white/30 dark:border-white/[0.05]">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--liquid-glass-border-soft)]">
             <Skeleton className="h-3.5 w-3.5 rounded-sm" />
             <Skeleton className="h-3 w-16" />
           </div>
-          <div className="divide-y divide-white/20 dark:divide-white/[0.04]">
+          <div className="divide-y divide-[var(--liquid-glass-border-soft)]">
             {Array.from({ length: i + 1 }).map((_, j) => (
               <div key={j} className="flex items-center gap-3 px-3 py-2.5">
                 <Skeleton className="h-2 w-2 rounded-full flex-shrink-0" />

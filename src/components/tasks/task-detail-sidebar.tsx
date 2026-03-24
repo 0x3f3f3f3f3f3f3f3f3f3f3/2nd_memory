@@ -58,7 +58,7 @@ export function TaskDetailSidebar({ task, allTags, onClose }: Props) {
   if (!task) return null
 
   const overdue = task.status !== "DONE" && isOverdue(task.dueAt)
-  const dueLabel = getDueLabel(task.dueAt)
+  const dueLabel = getDueLabel(task.dueAt, undefined, { suppressOverdue: task.status === "DONE" })
 
   const PRIORITY_OPTIONS = [
     { value: "LOW", label: t.tasks.priorityLow },
@@ -114,12 +114,12 @@ export function TaskDetailSidebar({ task, allTags, onClose }: Props) {
         "flex flex-col",
         "bg-white/80 dark:bg-[#252220]/90",
         "backdrop-blur-2xl saturate-150",
-        "border-l border-white/40 dark:border-white/[0.08]",
+        "border-l border-[var(--liquid-glass-border)]",
         "shadow-[-8px_0_32px_rgba(0,0,0,0.08)] dark:shadow-[-8px_0_32px_rgba(0,0,0,0.3)]",
         "animate-slide-in-right",
       )}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 h-14 border-b border-white/30 dark:border-white/[0.06] flex-shrink-0">
+        <div className="flex items-center justify-between px-5 h-14 border-b border-[var(--liquid-glass-border-soft)] flex-shrink-0">
           <h2 className="text-sm font-semibold">
             {mode === "edit" ? t.taskDetail.editTitle : t.taskDetail.viewTitle}
           </h2>

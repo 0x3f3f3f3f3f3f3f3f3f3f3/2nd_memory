@@ -21,7 +21,7 @@ const actionTools = [
           description: { type: "string", description: "任务描述" },
           status: { type: "string", enum: ["TODO", "DOING", "DONE"], description: "默认TODO" },
           priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"], description: "默认MEDIUM" },
-          dueAt: { type: "string", description: "截止日期 ISO 8601（必须带时区偏移）" },
+          dueAt: { type: "string", description: "截止日期 ISO 8601（必须带时区偏移）。只有用户明确说了 DDL/截止时间时才传；没说就不要传，让任务保持未排期。" },
           estimateMinutes: { type: "number", description: "预估分钟" },
           tagIds: { type: "array", items: { type: "string" }, description: "标签ID数组" },
         },
@@ -42,7 +42,7 @@ const actionTools = [
           description: { type: "string" },
           status: { type: "string", enum: ["INBOX", "TODO", "DOING", "DONE", "ARCHIVED"] },
           priority: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "URGENT"] },
-          dueAt: { type: "string", description: "ISO 8601，传 null 清除" },
+          dueAt: { type: "string", description: "ISO 8601，传 null 清除。只有用户明确提到 DDL/截止时间变化时才传。" },
           estimateMinutes: { type: "number" },
           tagIds: { type: "array", items: { type: "string" } },
         },
@@ -231,6 +231,33 @@ const actionTools = [
   },
 ]
 
+function hasExplicitDeadlineIntent(text: string): boolean {
+  const normalized = text.toLowerCase()
+
+  const deadlinePatterns = [
+    /\bddl\b/,
+    /\bdue\b/,
+    /\bdue date\b/,
+    /\bdeadline\b/,
+    /\bby\s+\d/,
+    /\bby\s+(today|tonight|tomorrow|tmr|this week|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/,
+    /\bbefore\b/,
+    /截止/,
+    /截至/,
+    /到期/,
+    /最晚/,
+    /之前/,
+    /前完成/,
+    /前交/,
+    /前提交/,
+    /前做完/,
+    /交付时间/,
+    /截止日期/,
+  ]
+
+  return deadlinePatterns.some((pattern) => pattern.test(normalized))
+}
+
 /* ── Tool execution ── */
 
 function slugify(text: string): string {
@@ -249,10 +276,17 @@ function revalidateAll() {
   }
 }
 
-async function executeTool(name: string, args: Record<string, unknown>, tz: string, userId: string): Promise<string> {
+async function executeTool(
+  name: string,
+  args: Record<string, unknown>,
+  tz: string,
+  userId: string,
+  allowDueAt: boolean,
+): Promise<string> {
   try {
     switch (name) {
       case "create_task": {
+        const safeDueAt = allowDueAt ? args.dueAt : undefined
         const task = await prisma.task.create({
           data: {
             userId,
@@ -260,7 +294,7 @@ async function executeTool(name: string, args: Record<string, unknown>, tz: stri
             description: (args.description as string) || undefined,
             status: (args.status as any) || "TODO",
             priority: (args.priority as any) || "MEDIUM",
-            dueAt: args.dueAt ? new Date(args.dueAt as string) : null,
+            dueAt: safeDueAt ? new Date(safeDueAt as string) : null,
             estimateMinutes: (args.estimateMinutes as number) || null,
             taskTags: (args.tagIds as string[])?.length
               ? { create: (args.tagIds as string[]).map(tagId => ({ tagId })) }
@@ -268,7 +302,7 @@ async function executeTool(name: string, args: Record<string, unknown>, tz: stri
           },
         })
         revalidateAll()
-        return JSON.stringify({ success: true, id: task.id, title: task.title })
+        return JSON.stringify({ success: true, id: task.id, title: task.title, dueAt: task.dueAt })
       }
 
       case "update_task": {
@@ -277,7 +311,9 @@ async function executeTool(name: string, args: Record<string, unknown>, tz: stri
           where: { id, userId },
           data: {
             ...rest,
-            dueAt: dueAt !== undefined ? (dueAt ? new Date(dueAt) : null) : undefined,
+            dueAt: dueAt !== undefined
+              ? (allowDueAt ? (dueAt ? new Date(dueAt) : null) : undefined)
+              : undefined,
             completedAt: rest.status === "DONE" ? new Date() : rest.status ? null : undefined,
             ...(tagIds !== undefined && {
               taskTags: { deleteMany: {}, create: tagIds.map((tagId: string) => ({ tagId })) },
@@ -520,7 +556,8 @@ function buildSystemPrompt(
 ## 规则
 1. **禁止重复创建任务**：下面已列出所有任务。用户提到的事项若和已有任务相关（关键词重叠即匹配），直接操作已有任务（加时间块/改状态等），不要新建。
 2. 重复排期（每天/每周X）用 create_recurring_time_blocks。
-3. 所有时间必须带时区偏移量，如 "${todayStr}T19:00:00${off}"。
+3. 用户没有明确说 DDL / 截止时间时，绝对不要给任务填写 dueAt；这种任务必须保持未排期。
+4. 所有时间必须带时区偏移量，如 "${todayStr}T19:00:00${off}"。
 
 ## 当前时间
 ${tz} (UTC${off}) | ${currentTime}
@@ -540,7 +577,8 @@ ${tagLine || "（无）"}`
 ## Rules
 1. **Never create duplicate tasks**: All tasks are listed below. If user mentions something matching an existing task (any keyword overlap), operate on it directly — never create a new one.
 2. Use create_recurring_time_blocks for repeating schedules.
-3. All times must include timezone offset, e.g. "${todayStr}T19:00:00${off}".
+3. If the user did not explicitly give a DDL / deadline, never set dueAt. Leave the task unscheduled.
+4. All times must include timezone offset, e.g. "${todayStr}T19:00:00${off}".
 
 ## Current Time
 ${tz} (UTC${off}) | ${currentTime}
@@ -662,6 +700,8 @@ export async function POST(req: NextRequest) {
 
   const tz = (typeof timezone === "string" && timezone) ? timezone : "Asia/Shanghai"
   const lang: "zh" | "en" = locale === "en" ? "en" : "zh"
+  const lastUserMessage = [...messages].reverse().find((message: any) => message?.role === "user")?.content
+  const allowDueAt = typeof lastUserMessage === "string" ? hasExplicitDeadlineIntent(lastUserMessage) : false
 
   // Pre-fetch user data — eliminates the need for list_tasks/list_tags tool calls
   const [todayStart, todayEnd] = getTodayRange(tz)
@@ -723,7 +763,7 @@ export async function POST(req: NextRequest) {
           const results = await Promise.all(
             toolCalls.map(async (tc) => {
               const args = JSON.parse(tc.function.arguments || "{}")
-              const result = await executeTool(tc.function.name, args, tz, userId)
+              const result = await executeTool(tc.function.name, args, tz, userId, allowDueAt)
               return { role: "tool" as const, tool_call_id: tc.id, content: result }
             })
           )

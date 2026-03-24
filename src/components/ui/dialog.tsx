@@ -34,7 +34,7 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         // Shared base
-        "fixed z-50 grid gap-4 shadow-2xl duration-200 backdrop-blur-2xl saturate-150 bg-[rgba(255,255,255,0.82)] dark:bg-[rgba(37,34,32,0.88)] border border-[rgba(255,255,255,0.4)] dark:border-[rgba(255,255,255,0.08)] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "glass-flat-panel fixed z-50 grid gap-4 text-[--foreground] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         // Mobile: bottom sheet
         "max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:top-auto max-md:w-full max-md:max-h-[85dvh] max-md:overflow-y-auto max-md:rounded-t-2xl max-md:rounded-b-none max-md:p-5 max-md:pb-[max(1.25rem,env(safe-area-inset-bottom))] max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=open]:slide-in-from-bottom",
         // Desktop: centered dialog (existing behavior)

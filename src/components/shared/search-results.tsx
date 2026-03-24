@@ -1,11 +1,12 @@
 "use client"
-import { useState, useTransition } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { TaskItem } from "@/components/tasks/task-item"
 import { TagChip } from "./tag-chip"
 import { Search, BookOpen, Tag, CheckSquare } from "lucide-react"
+import { useT } from "@/contexts/locale-context"
 import type { Task, TaskTag, Tag as TagType, SubTask, Note, NoteTag } from "@prisma/client"
 
 type TaskWithRelations = Task & { taskTags: (TaskTag & { tag: TagType })[], subTasks: SubTask[] }
@@ -13,6 +14,7 @@ type NoteWithTags = Note & { noteTags: (NoteTag & { tag: TagType })[] }
 
 export function SearchResults({ tasks, notes, tags, query }: { tasks: TaskWithRelations[], notes: NoteWithTags[], tags: TagType[], query: string }) {
   const router = useRouter()
+  const t = useT()
   const [value, setValue] = useState(query)
 
   const handleSearch = (e: React.FormEvent) => {
@@ -28,7 +30,7 @@ export function SearchResults({ tasks, notes, tags, query }: { tasks: TaskWithRe
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[--muted-foreground]" />
           <Input
-            placeholder="搜索任务、笔记、标签..."
+            placeholder={t.searchPage.placeholder}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             className="pl-9 h-11 text-base"
@@ -39,7 +41,7 @@ export function SearchResults({ tasks, notes, tags, query }: { tasks: TaskWithRe
 
       {query && (
         <p className="text-sm text-[--muted-foreground]">
-          "{query}" 共找到 {total} 条结果
+          {t.searchPage.results(query, total)}
         </p>
       )}
 
@@ -47,7 +49,7 @@ export function SearchResults({ tasks, notes, tags, query }: { tasks: TaskWithRe
         <section className="space-y-2">
           <div className="flex items-center gap-2">
             <CheckSquare className="w-4 h-4 text-[--primary]" />
-            <h2 className="text-sm font-semibold">任务 ({tasks.length})</h2>
+            <h2 className="text-sm font-semibold">{t.searchPage.tasksSection(tasks.length)}</h2>
           </div>
           {tasks.map((task) => <TaskItem key={task.id} task={task} />)}
         </section>
@@ -57,10 +59,10 @@ export function SearchResults({ tasks, notes, tags, query }: { tasks: TaskWithRe
         <section className="space-y-2">
           <div className="flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-violet-500" />
-            <h2 className="text-sm font-semibold">笔记 ({notes.length})</h2>
+            <h2 className="text-sm font-semibold">{t.searchPage.notesSection(notes.length)}</h2>
           </div>
           {notes.map((note) => (
-            <Link key={note.id} href={`/notes/${note.id}`} className="block p-3 rounded-xl bg-white/45 dark:bg-white/[0.03] border border-white/50 dark:border-white/[0.06] backdrop-blur-md hover:bg-white/65 dark:hover:bg-white/[0.06] transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.03),inset_0_1px_0_rgba(255,255,255,0.5)]">
+            <Link key={note.id} href={`/notes/${note.id}`} className="block p-3 rounded-xl bg-[var(--liquid-glass-bg)] border border-[var(--liquid-glass-border)] backdrop-blur-md hover:bg-[var(--liquid-glass-hover-bg)] transition-colors shadow-[var(--liquid-glass-shadow-soft)]">
               <p className="text-sm font-medium">{note.title}</p>
               {note.summary && <p className="text-xs text-[--muted-foreground] mt-0.5 line-clamp-1">{note.summary}</p>}
             </Link>
@@ -72,7 +74,7 @@ export function SearchResults({ tasks, notes, tags, query }: { tasks: TaskWithRe
         <section className="space-y-2">
           <div className="flex items-center gap-2">
             <Tag className="w-4 h-4 text-[--muted-foreground]" />
-            <h2 className="text-sm font-semibold">标签 ({tags.length})</h2>
+            <h2 className="text-sm font-semibold">{t.searchPage.tagsSection(tags.length)}</h2>
           </div>
           <div className="flex gap-2 flex-wrap">
             {tags.map((tag) => (
@@ -87,7 +89,7 @@ export function SearchResults({ tasks, notes, tags, query }: { tasks: TaskWithRe
       {query && total === 0 && (
         <div className="text-center py-12 text-[--muted-foreground]">
           <Search className="w-10 h-10 mx-auto mb-3 opacity-40" />
-          <p className="text-sm">没有找到 "{query}"</p>
+          <p className="text-sm">{t.searchPage.noResults(query)}</p>
         </div>
       )}
     </div>

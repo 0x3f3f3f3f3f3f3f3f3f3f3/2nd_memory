@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Plus, Loader2 } from "lucide-react"
+import { useT } from "@/contexts/locale-context"
 
 const PRESET_COLORS = ["#6366f1","#8b5cf6","#ec4899","#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#64748b"]
 
 export function TagFormButton() {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [color, setColor] = useState("#6366f1")
@@ -27,17 +29,17 @@ export function TagFormButton() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5"><Plus className="w-4 h-4" /><span className="hidden sm:inline">新建标签</span></Button>
+        <Button size="sm" className="gap-1.5"><Plus className="w-4 h-4" /><span className="hidden sm:inline">{t.tagsPage.newTag}</span></Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-sm">
-        <DialogHeader><DialogTitle>新建标签</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{t.tagsPage.dialogTitle}</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label>标签名称 *</Label>
-            <Input placeholder="输入标签名..." value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            <Label>{t.tagsPage.nameLabel}</Label>
+            <Input placeholder={t.tagsPage.namePlaceholder} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </div>
           <div className="space-y-1.5">
-            <Label>颜色</Label>
+            <Label>{t.tagsPage.colorLabel}</Label>
             <div className="flex gap-2 flex-wrap">
               {PRESET_COLORS.map((c) => (
                 <button key={c} type="button" onClick={() => setColor(c)}
@@ -48,9 +50,9 @@ export function TagFormButton() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>取消</Button>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t.tasks.cancel}</Button>
             <Button type="submit" disabled={isPending || !name.trim()}>
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "创建"}
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t.tasks.create}
             </Button>
           </DialogFooter>
         </form>

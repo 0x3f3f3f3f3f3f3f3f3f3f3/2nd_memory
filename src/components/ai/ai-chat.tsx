@@ -118,10 +118,10 @@ export function AiChat() {
                   onClick={() => sendMessage(s)}
                   className={cn(
                     "text-xs px-3 py-2 rounded-xl",
-                    "bg-white/50 dark:bg-white/[0.04]",
-                    "border border-white/60 dark:border-white/[0.08]",
+                    "bg-[var(--liquid-glass-bg)] border border-[var(--liquid-glass-border)]",
                     "backdrop-blur-sm",
-                    "hover:bg-white/70 dark:hover:bg-white/[0.08]",
+                    "shadow-[var(--liquid-glass-shadow-soft)]",
+                    "hover:bg-[var(--liquid-glass-hover-bg)]",
                     "hover:-translate-y-px hover:shadow-md",
                     "active:scale-[0.98]",
                     "transition-all duration-150",
@@ -167,11 +167,10 @@ export function AiChat() {
                     "shadow-[0_2px_12px_rgba(201,100,68,0.2)]",
                   ]
                 : [
-                    "bg-white/55 dark:bg-white/[0.04]",
-                    "border border-white/60 dark:border-white/[0.07]",
+                    "bg-[var(--liquid-glass-bg)]",
+                    "border border-[var(--liquid-glass-border)]",
                     "backdrop-blur-md",
-                    "shadow-[0_2px_12px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.6)]",
-                    "dark:shadow-[0_2px_12px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.04)]",
+                    "shadow-[var(--liquid-glass-shadow-soft)]",
                     "rounded-bl-lg",
                   ],
             )}>
@@ -193,10 +192,10 @@ export function AiChat() {
             </div>
             <div className={cn(
               "rounded-2xl rounded-bl-lg px-4 py-3",
-              "bg-white/55 dark:bg-white/[0.04]",
-              "border border-white/60 dark:border-white/[0.07]",
+              "bg-[var(--liquid-glass-bg)]",
+              "border border-[var(--liquid-glass-border)]",
               "backdrop-blur-md",
-              "shadow-[0_2px_12px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.6)]",
+              "shadow-[var(--liquid-glass-shadow-soft)]",
             )}>
               <div className="flex gap-1.5 items-center h-5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[--muted-foreground]/40 animate-bounce" style={{ animationDelay: "0ms" }} />
@@ -209,17 +208,17 @@ export function AiChat() {
       </div>
 
       {/* Input area */}
-      <div className="flex-shrink-0 px-4 pt-2 pb-24 md:pb-8 safe-area-pb">
+      <div className="flex-shrink-0 px-4 pt-2 pb-32 md:pb-20 mb-8 md:mb-12 safe-area-pb">
         <div className={cn(
+          "ai-input-flat",
           "flex items-center gap-2 max-w-2xl mx-auto",
           "rounded-2xl px-4 py-2",
-          "bg-white/55 dark:bg-white/[0.04]",
-          "border border-white/60 dark:border-white/[0.08]",
-          "backdrop-blur-md",
-          "shadow-[0_4px_24px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]",
-          "dark:shadow-[0_4px_24px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.04)]",
+          "bg-[var(--liquid-glass-bg-strong)]",
+          "border border-[var(--liquid-glass-border)]",
+          "shadow-[var(--liquid-glass-shadow)]",
           "focus-within:shadow-[0_4px_24px_rgba(201,100,68,0.12),inset_0_1px_0_rgba(255,255,255,0.6)]",
-          "transition-shadow duration-200",
+          "dark:bg-[--muted] dark:border-[--border] dark:backdrop-blur-none dark:shadow-none dark:focus-within:shadow-none dark:focus-within:border-[--ring]",
+          "transition-all duration-200",
         )}>
           {messages.length > 0 && (
             <button
@@ -245,8 +244,8 @@ export function AiChat() {
             className={cn(
               "flex-shrink-0 w-10 h-10 md:w-8 md:h-8 rounded-xl flex items-center justify-center transition-all duration-150 ",
               input.trim() && !loading
-                ? "bg-[--primary] text-[--primary-foreground] shadow-sm hover:opacity-90 active:scale-95"
-                : "bg-[--foreground]/[0.05] text-[--muted-foreground]/40",
+                ? "bg-[--primary] text-[--primary-foreground] shadow-sm hover:opacity-90 active:scale-95 dark:shadow-none"
+                : "bg-[--foreground]/[0.05] text-[--muted-foreground]/40 dark:bg-[var(--secondary)]",
             )}
           >
             {loading ? (

@@ -1,5 +1,6 @@
 "use client"
 import { useState, useMemo } from "react"
+import { usePathname } from "next/navigation"
 import { Label } from "@/components/ui/label"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Moon, Sun, Monitor, Shield, Globe, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/contexts/locale-context"
+import type { ThemePreference } from "@/lib/preferences"
 
 /* ── Curated timezone list ── */
 const TIMEZONES = [
@@ -60,28 +62,20 @@ function tzOffsetLabel(tz: string): string {
 }
 
 export function SettingsPanel() {
-  const { t, timezone, setTimezone } = useI18n()
-  const [theme, setTheme] = useState("system")
+  const pathname = usePathname()
+  const { t, timezone, setTimezone, theme, setTheme } = useI18n()
   const [tzSearch, setTzSearch] = useState("")
   const detectedTz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
+  const logoutAction = `/api/auth/logout?from=${encodeURIComponent(pathname || "/settings")}`
 
-  const applyTheme = (th: string) => {
-    setTheme(th)
-    if (th === "dark") document.documentElement.classList.add("dark")
-    else if (th === "light") document.documentElement.classList.remove("dark")
-    else {
-      if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        document.documentElement.classList.add("dark")
-      } else {
-        document.documentElement.classList.remove("dark")
-      }
-    }
+  const applyTheme = (nextTheme: ThemePreference) => {
+    setTheme(nextTheme)
   }
 
   const themeOptions = [
-    { value: "light", label: t.settings.themeLight, icon: Sun },
-    { value: "dark", label: t.settings.themeDark, icon: Moon },
-    { value: "system", label: t.settings.themeSystem, icon: Monitor },
+    { value: "light" as const, label: t.settings.themeLight, icon: Sun },
+    { value: "dark" as const, label: t.settings.themeDark, icon: Moon },
+    { value: "system" as const, label: t.settings.themeSystem, icon: Monitor },
   ]
 
   return (
@@ -98,7 +92,7 @@ export function SettingsPanel() {
                   onClick={() => applyTheme(value)}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-colors",
-                    theme === value ? "border-[--primary] bg-[--primary]/10 text-[--primary]" : "border-white/50 dark:border-white/[0.12] bg-white/30 dark:bg-white/[0.04] glass-seg-btn"
+                    theme === value ? "border-[--primary] bg-[--primary]/10 text-[--primary]" : "border-[var(--liquid-glass-border)] bg-[var(--liquid-glass-bg)] glass-seg-btn"
                   )}
                 >
                   <Icon className="w-4 h-4" />
@@ -133,10 +127,10 @@ export function SettingsPanel() {
               value={tzSearch}
               onChange={e => setTzSearch(e.target.value)}
               placeholder={timezone}
-              className="w-full px-3 py-1.5 text-sm rounded-lg border border-white/50 dark:border-white/[0.12] bg-white/30 dark:bg-white/[0.04] focus:outline-none focus:ring-1 focus:ring-[--primary] placeholder:text-[--muted-foreground]/60"
+              className="w-full px-3 py-1.5 text-sm rounded-lg border border-[var(--liquid-glass-border)] bg-[var(--liquid-glass-input-bg)] shadow-[var(--liquid-glass-shadow-soft)] focus:outline-none focus:ring-1 focus:ring-[--primary] placeholder:text-[--muted-foreground]/60"
             />
 
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-white/50 dark:border-white/[0.12] bg-white/20 dark:bg-white/[0.02]">
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--liquid-glass-border)] bg-[var(--liquid-glass-bg-soft)] shadow-[var(--liquid-glass-shadow-soft)]">
               {TIMEZONES.filter(({ tz, label }) =>
                 !tzSearch || tz.toLowerCase().includes(tzSearch.toLowerCase()) || label.toLowerCase().includes(tzSearch.toLowerCase())
               ).map(({ tz, label }) => {
@@ -151,7 +145,7 @@ export function SettingsPanel() {
                       "w-full flex items-center justify-between px-3 py-2.5 text-sm text-left transition-colors",
                       isSelected
                         ? "bg-[--primary]/10 text-[--primary]"
-                        : "hover:bg-white/30 dark:hover:bg-white/[0.06]"
+                        : "hover:bg-[var(--liquid-glass-hover-bg)]"
                     )}
                   >
                     <span className="flex items-center gap-2 min-w-0">
@@ -179,16 +173,15 @@ export function SettingsPanel() {
             <span>{t.settings.securityDesc}</span>
           </div>
           <Separator />
-          <Button
-            variant="outline"
-            className="text-[--destructive] border-[--destructive]/30 hover:bg-[--destructive]/10"
-            onClick={async () => {
-              await fetch("/api/auth/logout", { method: "POST" })
-              window.location.href = "/login"
-            }}
-          >
-            {t.settings.logoutBtn}
-          </Button>
+          <form action={logoutAction} method="POST">
+            <Button
+              type="submit"
+              variant="outline"
+              className="text-[--destructive] border-[--destructive]/30 hover:bg-[--destructive]/10"
+            >
+              {t.settings.logoutBtn}
+            </Button>
+          </form>
         </CardContent>
       </Card>
 

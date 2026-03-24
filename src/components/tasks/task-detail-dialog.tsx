@@ -50,7 +50,7 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
   const [selectedTags, setSelectedTags] = useState<string[]>(task.taskTags.map((tt) => tt.tagId))
 
   const overdue = task.status !== "DONE" && isOverdue(task.dueAt)
-  const dueLabel = getDueLabel(task.dueAt)
+  const dueLabel = getDueLabel(task.dueAt, undefined, { suppressOverdue: task.status === "DONE" })
 
   const PRIORITY_OPTIONS = [
     { value: "LOW", label: t.tasks.priorityLow },

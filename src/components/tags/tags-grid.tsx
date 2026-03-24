@@ -1,17 +1,21 @@
+"use client"
 import Link from "next/link"
 import { Tag } from "lucide-react"
 import { EmptyState } from "@/components/shared/empty-state"
+import { useT } from "@/contexts/locale-context"
 import type { Tag as TagType } from "@prisma/client"
 
 type TagWithCount = TagType & { _count: { taskTags: number; noteTags: number } }
 
 export function TagsGrid({ tags }: { tags: TagWithCount[] }) {
+  const t = useT()
+
   if (tags.length === 0) {
     return (
       <EmptyState
         icon={<Tag className="w-10 h-10" />}
-        title="还没有标签"
-        description="创建标签来组织你的任务和笔记"
+        title={t.tagsPage.emptyTitle}
+        description={t.tagsPage.emptyDesc}
       />
     )
   }
@@ -22,7 +26,7 @@ export function TagsGrid({ tags }: { tags: TagWithCount[] }) {
         <Link
           key={tag.id}
           href={`/tags/${tag.slug}`}
-          className="group block p-4 rounded-xl card-hover bg-white/50 dark:bg-white/[0.04] border border-white/60 dark:border-white/[0.07] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5)]"
+          className="group block p-4 rounded-xl card-hover bg-[var(--liquid-glass-bg)] border border-[var(--liquid-glass-border)] backdrop-blur-md shadow-[var(--liquid-glass-shadow-soft)]"
           style={{ borderLeftColor: tag.color, borderLeftWidth: 3 }}
         >
           <div className="flex items-center gap-2 mb-3">
@@ -33,8 +37,8 @@ export function TagsGrid({ tags }: { tags: TagWithCount[] }) {
             <p className="text-xs text-[--muted-foreground] mb-3 line-clamp-2">{tag.description}</p>
           )}
           <div className="flex items-center gap-3 text-xs text-[--muted-foreground]">
-            <span>{tag._count.taskTags} 任务</span>
-            <span>{tag._count.noteTags} 笔记</span>
+            <span>{t.tagsPage.tasksCount(tag._count.taskTags)}</span>
+            <span>{t.tagsPage.notesCount(tag._count.noteTags)}</span>
           </div>
         </Link>
       ))}

@@ -84,6 +84,7 @@ function TaskCard({
   return (
     <>
       <div
+        data-ddl-task-trigger="true"
         onClick={handleClick}
         className={cn(
           "group flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer",
@@ -248,20 +249,27 @@ export function DdlView({
   const thisWeek: TaskWithRelations[] = []
   const nextWeek: TaskWithRelations[] = []
   const later: TaskWithRelations[] = []
+  const completed: TaskWithRelations[] = []
   const noDue: TaskWithRelations[] = []
 
   for (const task of tasks) {
     if (task.status === "ARCHIVED") continue
+    if (task.status === "DONE") {
+      completed.push(task)
+      continue
+    }
     if (!task.dueAt) { noDue.push(task); continue }
     const d = toChina(task.dueAt)
-    if (isBefore(d, todayStart)) overdue.push(task)
+    if (isBefore(d, todayStart)) {
+      overdue.push(task)
+    }
     else if (isBefore(d, todayEnd)) today.push(task)
     else if (isBefore(d, thisWeekEnd)) thisWeek.push(task)
     else if (isBefore(d, nextWeekEnd)) nextWeek.push(task)
     else later.push(task)
   }
 
-  const hasAny = overdue.length + today.length + thisWeek.length + nextWeek.length + later.length + noDue.length > 0
+  const hasAny = overdue.length + today.length + thisWeek.length + nextWeek.length + later.length + completed.length + noDue.length > 0
 
   if (!hasAny) {
     return (
@@ -278,6 +286,7 @@ export function DdlView({
   const o3 = o2 + thisWeek.length
   const o4 = o3 + nextWeek.length
   const o5 = o4 + later.length
+  const o6 = o5 + completed.length
 
   return (
     <div className="space-y-5">
@@ -286,7 +295,8 @@ export function DdlView({
       <Section label={t.ddl.thisWeek} icon={<Clock className="w-3.5 h-3.5 text-[--muted-foreground]" />} tasks={thisWeek} allTags={allTags} accent="text-[--muted-foreground]" startIndex={o2} onSelectTask={onSelectTask} />
       <Section label={t.ddl.nextWeek} icon={<CalendarClock className="w-3.5 h-3.5 text-[--muted-foreground]/70" />} tasks={nextWeek} allTags={allTags} accent="text-[--muted-foreground]/70" startIndex={o3} onSelectTask={onSelectTask} />
       <Section label={t.ddl.later} icon={<CalendarClock className="w-3.5 h-3.5 text-[--muted-foreground]/50" />} tasks={later} allTags={allTags} accent="text-[--muted-foreground]/50" startIndex={o4} onSelectTask={onSelectTask} />
-      <Section label={t.ddl.unscheduled} icon={<Clock className="w-3.5 h-3.5 text-[--muted-foreground]/30" />} tasks={noDue} allTags={allTags} accent="text-[--muted-foreground]/40" startIndex={o5} onSelectTask={onSelectTask} />
+      <Section label={t.ddl.completed} icon={<Check className="w-3.5 h-3.5 text-emerald-500" />} tasks={completed} allTags={allTags} accent="text-emerald-600 dark:text-emerald-400" startIndex={o5} onSelectTask={onSelectTask} />
+      <Section label={t.ddl.unscheduled} icon={<Clock className="w-3.5 h-3.5 text-[--muted-foreground]/30" />} tasks={noDue} allTags={allTags} accent="text-[--muted-foreground]/40" startIndex={o6} onSelectTask={onSelectTask} />
     </div>
   )
 }

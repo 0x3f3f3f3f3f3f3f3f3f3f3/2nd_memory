@@ -123,6 +123,27 @@ const zh = {
     count: (n: number) => `共 ${n} 篇`,
   },
 
+  tagsPage: {
+    emptyTitle: "还没有标签",
+    emptyDesc: "创建标签来组织你的任务和笔记",
+    newTag: "新建标签",
+    dialogTitle: "新建标签",
+    nameLabel: "标签名称 *",
+    namePlaceholder: "输入标签名...",
+    colorLabel: "颜色",
+    tasksCount: (n: number) => `${n} 任务`,
+    notesCount: (n: number) => `${n} 笔记`,
+  },
+
+  searchPage: {
+    placeholder: "搜索任务、笔记、标签...",
+    results: (query: string, total: number) => `"${query}" 共找到 ${total} 条结果`,
+    tasksSection: (n: number) => `任务 (${n})`,
+    notesSection: (n: number) => `笔记 (${n})`,
+    tagsSection: (n: number) => `标签 (${n})`,
+    noResults: (query: string) => `没有找到 "${query}"`,
+  },
+
   noteTypes: {
     ADVICE: "建议",
     DECISION: "决策",
@@ -146,6 +167,7 @@ const zh = {
     thisWeek: "本周",
     nextWeek: "下周",
     later: "更远",
+    completed: "已完成",
     emptyTitle: "没有设置截止日期的任务",
     unscheduled: "未排期",
     items: (n: number) => `${n} 项`,
@@ -337,6 +359,27 @@ const en: T = {
     count: (n: number) => `${n} notes`,
   },
 
+  tagsPage: {
+    emptyTitle: "No tags yet",
+    emptyDesc: "Create tags to organize your tasks and notes",
+    newTag: "New Tag",
+    dialogTitle: "Create Tag",
+    nameLabel: "Tag Name *",
+    namePlaceholder: "Enter tag name...",
+    colorLabel: "Color",
+    tasksCount: (n: number) => `${n} tasks`,
+    notesCount: (n: number) => `${n} notes`,
+  },
+
+  searchPage: {
+    placeholder: "Search tasks, notes, tags...",
+    results: (query: string, total: number) => `"${query}" returned ${total} results`,
+    tasksSection: (n: number) => `Tasks (${n})`,
+    notesSection: (n: number) => `Notes (${n})`,
+    tagsSection: (n: number) => `Tags (${n})`,
+    noResults: (query: string) => `No results for "${query}"`,
+  },
+
   noteTypes: {
     ADVICE: "Advice",
     DECISION: "Decision",
@@ -360,6 +403,7 @@ const en: T = {
     thisWeek: "This Week",
     nextWeek: "Next Week",
     later: "Later",
+    completed: "Completed",
     emptyTitle: "No tasks with deadlines",
     unscheduled: "Unscheduled",
     items: (n: number) => `${n} items`,

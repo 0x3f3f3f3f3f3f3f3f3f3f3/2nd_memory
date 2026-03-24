@@ -47,7 +47,7 @@ export function TaskItem({ task, allTags = [], onSelect }: TaskItemProps) {
   const isDone = status === "DONE"
   const isDoing = status === "DOING"
   const overdue = status !== "DONE" && isOverdue(task.dueAt)
-  const dueLabel = getDueLabel(task.dueAt)
+  const dueLabel = getDueLabel(task.dueAt, undefined, { suppressOverdue: isDone })
   const Icon = STATUS_ICON[status]
 
   const handleCycle = (e: React.MouseEvent) => {
@@ -62,17 +62,18 @@ export function TaskItem({ task, allTags = [], onSelect }: TaskItemProps) {
   return (
     <>
       <div
+        data-task-list-trigger="true"
         onClick={() => onSelect?.(task)}
         className={cn(
           "group flex gap-3 p-3 rounded-xl border transition-all cursor-pointer card-hover",
-          "backdrop-blur-md shadow-[0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5)]",
+          "backdrop-blur-md shadow-[var(--liquid-glass-shadow-soft)]",
           isDone
-            ? "bg-white/30 dark:bg-white/[0.02] border-white/40 dark:border-white/[0.05] opacity-60"
+            ? "bg-[var(--liquid-glass-bg-soft)] border-[var(--liquid-glass-border-soft)] opacity-60"
             : isDoing
             ? "bg-amber-50/60 dark:bg-amber-900/15 border-amber-200/60 dark:border-amber-800/30"
             : overdue
             ? "bg-red-50/60 dark:bg-red-900/15 border-red-200/60 dark:border-red-800/30"
-            : "bg-white/50 dark:bg-white/[0.04] border-white/60 dark:border-white/[0.07] hover:bg-white/70 dark:hover:bg-white/[0.06]"
+            : "bg-[var(--liquid-glass-bg)] border-[var(--liquid-glass-border)] hover:bg-[var(--liquid-glass-hover-bg)]"
         )}
       >
         <button

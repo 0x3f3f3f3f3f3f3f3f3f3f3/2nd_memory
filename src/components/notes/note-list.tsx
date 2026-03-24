@@ -33,7 +33,7 @@ export function NoteList({ notes, tags }: { notes: NoteWithTags[]; tags: Tag[] }
 
       {tags.length > 0 && (
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => setActiveTag(null)} className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors", !activeTag ? "bg-[--primary] text-[--primary-foreground] border-[--primary]" : "border-white/50 dark:border-white/[0.12] text-[--muted-foreground] hover:border-white/70 dark:hover:border-white/[0.2] hover:bg-white/40 dark:hover:bg-white/[0.05]")}>
+          <button onClick={() => setActiveTag(null)} className={cn("text-xs px-2.5 py-1 rounded-full border transition-colors", !activeTag ? "bg-[--primary] text-[--primary-foreground] border-[--primary]" : "border-[var(--liquid-glass-border)] bg-[var(--liquid-glass-bg)] text-[--muted-foreground] hover:border-[var(--liquid-glass-border)] hover:bg-[var(--liquid-glass-hover-bg)]")}>
             {t.notes.filterAll}
           </button>
           {tags.map((tag) => (

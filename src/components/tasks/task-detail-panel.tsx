@@ -87,11 +87,7 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
 
   return (
     <div className={cn(
-      "flex flex-col h-full rounded-3xl overflow-hidden",
-      "bg-[var(--liquid-glass-bg-strong)]",
-      "backdrop-filter backdrop-blur-2xl",
-      "border border-[var(--liquid-glass-border)]",
-      "shadow-[var(--liquid-glass-shadow)]",
+      "glass-flat-panel panel-flat-surface flex flex-col h-full rounded-3xl overflow-hidden",
     )}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--liquid-glass-border-soft)] flex-shrink-0">

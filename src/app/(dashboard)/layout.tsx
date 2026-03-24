@@ -4,7 +4,7 @@ import { PageTransition } from "@/components/shared/page-transition"
 import { getCurrentUser } from "@/lib/auth"
 import { LocaleProvider } from "@/contexts/locale-context"
 import { cookies } from "next/headers"
-import type { Locale } from "@/lib/i18n"
+import { LOCALE_COOKIE, THEME_COOKIE, TIMEZONE_COOKIE, isLocale, isThemePreference } from "@/lib/preferences"
 
 export default async function DashboardLayout({
   children,
@@ -13,11 +13,14 @@ export default async function DashboardLayout({
 }) {
   const { username } = await getCurrentUser()
   const cookieStore = await cookies()
-  const locale = (cookieStore.get("locale")?.value ?? "zh") as Locale
-  const timezone = cookieStore.get("tz")?.value ?? "Asia/Shanghai"
+  const localeValue = cookieStore.get(LOCALE_COOKIE)?.value
+  const themeValue = cookieStore.get(THEME_COOKIE)?.value
+  const locale = isLocale(localeValue) ? localeValue : "zh"
+  const timezone = cookieStore.get(TIMEZONE_COOKIE)?.value ?? "Asia/Shanghai"
+  const theme = isThemePreference(themeValue) ? themeValue : "system"
 
   return (
-    <LocaleProvider initialLocale={locale} initialTimezone={timezone}>
+    <LocaleProvider initialLocale={locale} initialTimezone={timezone} initialTheme={theme}>
       <div className="min-h-screen flex flex-col md:flex-row">
         <Sidebar username={username} />
         <main className="flex-1 md:ml-[var(--sidebar-width)] flex flex-col min-h-screen overflow-x-hidden pb-20 md:pb-0">

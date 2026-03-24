@@ -13,6 +13,7 @@ export function MobileNav() {
   const pathname = usePathname()
   const { t, locale, setLocale } = useI18n()
   const [moreOpen, setMoreOpen] = useState(false)
+  const logoutAction = `/api/auth/logout?from=${encodeURIComponent(pathname || "/")}`
 
   const mainItems = [
     { href: "/inbox", label: t.nav.inboxMobile, icon: Inbox },
@@ -44,7 +45,7 @@ export function MobileNav() {
           />
           {/* Bottom sheet */}
           <div
-            className="absolute bottom-0 left-0 right-0 glass rounded-t-2xl border-t border-white/40 dark:border-white/[0.08]"
+            className="absolute bottom-0 left-0 right-0 glass rounded-t-2xl border-t border-[var(--liquid-glass-border)]"
             style={{ animation: "sheet-up 0.25s ease-out" }}
           >
             <div className="sheet-pill mt-3" />
@@ -73,7 +74,7 @@ export function MobileNav() {
               </div>
 
               {/* Bottom row: language + logout */}
-              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/30 dark:border-white/[0.06] pb-1 safe-area-pb">
+              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--liquid-glass-border-soft)] pb-1 safe-area-pb">
                 <button
                   onClick={() => { setLocale(locale === "zh" ? "en" : "zh"); setMoreOpen(false) }}
                   className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-[--muted-foreground] active:bg-[--accent] transition-colors"
@@ -82,7 +83,7 @@ export function MobileNav() {
                   {t.switchLanguage}
                 </button>
                 <div className="flex-1" />
-                <form action="/api/auth/logout" method="POST">
+                <form action={logoutAction} method="POST">
                   <button
                     type="submit"
                     className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-[--destructive] active:bg-[--destructive]/10 transition-colors"

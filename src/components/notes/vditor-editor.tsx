@@ -24,6 +24,21 @@ function insertHeading(vd: any, level: number) {
   vd.insertValue(prefix)
 }
 
+type EditorTheme = "dark" | "classic"
+
+function getEditorTheme(): EditorTheme {
+  if (typeof document === "undefined") return "classic"
+  return document.documentElement.classList.contains("dark") ? "dark" : "classic"
+}
+
+function getContentTheme(theme: EditorTheme) {
+  return theme === "dark" ? "dark" : "light"
+}
+
+function getCodeTheme(theme: EditorTheme) {
+  return theme === "dark" ? "github-dark" : "github"
+}
+
 export function VditorEditor({ value, onChange, height = 480 }: VditorEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const vditorRef = useRef<any>(null)
@@ -32,15 +47,20 @@ export function VditorEditor({ value, onChange, height = 480 }: VditorEditorProp
   useEffect(() => {
     if (mountedRef.current || !containerRef.current) return
     mountedRef.current = true
+    let isDisposed = false
+    let removeKeyHandler: (() => void) | null = null
+    let themeObserver: MutationObserver | null = null
 
     import("vditor").then(({ default: Vditor }) => {
-      if (!containerRef.current) return
+      if (isDisposed || !containerRef.current) return
+      const initialTheme = getEditorTheme()
 
       vditorRef.current = new Vditor(containerRef.current, {
         height,
         mode: "ir",
         value,
         lang: "zh_CN",
+        theme: initialTheme,
         input: onChange,
         cache: { enable: false },
         toolbar: [
@@ -67,6 +87,8 @@ export function VditorEditor({ value, onChange, height = 480 }: VditorEditorProp
           "fullscreen",
         ],
         preview: {
+          theme: { current: getContentTheme(initialTheme) },
+          hljs: { style: getCodeTheme(initialTheme) },
           markdown: { toc: true },
         },
         after() {
@@ -127,11 +149,27 @@ export function VditorEditor({ value, onChange, height = 480 }: VditorEditorProp
 
           // Use capture to intercept before Vditor's own handlers
           container.addEventListener("keydown", handler, true)
+          removeKeyHandler = () => container.removeEventListener("keydown", handler, true)
+
+          const syncTheme = () => {
+            const theme = getEditorTheme()
+            vditorRef.current?.setTheme(theme, getContentTheme(theme), getCodeTheme(theme))
+          }
+
+          syncTheme()
+          themeObserver = new MutationObserver(syncTheme)
+          themeObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["class"],
+          })
         },
       })
     })
 
     return () => {
+      isDisposed = true
+      removeKeyHandler?.()
+      themeObserver?.disconnect()
       vditorRef.current?.destroy()
       vditorRef.current = null
       mountedRef.current = false

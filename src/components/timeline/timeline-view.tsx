@@ -104,11 +104,11 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
   const [panelVisible, setPanelVisible] = useState(false)
   const panelVisibleRef = useRef(false)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
 
   const onClosePanel = useCallback(() => {
     setPanelVisible(false)
     panelVisibleRef.current = false
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     closeTimerRef.current = setTimeout(() => setSelectedTask(null), 450)
   }, [])
 
@@ -123,6 +123,16 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
       panelVisibleRef.current = true
     }))
   }, [selectedTask, onClosePanel])
+
+  const onMainAreaClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!panelVisibleRef.current) return
+
+    const target = event.target as HTMLElement
+    if (target.closest("[data-timeline-task-trigger='true']")) return
+    if (target.closest("button, a, input, textarea, select, label, [role='button'], [data-radix-popper-content-wrapper]")) return
+
+    onClosePanel()
+  }, [onClosePanel])
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
   const weekDays = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) })
@@ -166,11 +176,10 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
           "relative flex flex-col overflow-hidden transition-all duration-200",
           isMobile ? "rounded-lg min-h-[50px] p-1" : "rounded-xl min-h-[80px] md:min-h-[100px] p-1.5",
           !today && !outside && [
-            "bg-white/55 dark:bg-white/[0.04]",
-            "border border-white/60 dark:border-white/[0.07]",
-            "shadow-[0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.7)]",
-            "dark:shadow-[0_2px_8px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.05)]",
-            !isMobile && "hover:bg-white/75 dark:hover:bg-white/[0.07]",
+            "bg-[var(--liquid-glass-bg)]",
+            "border border-[var(--liquid-glass-border)]",
+            "shadow-[var(--liquid-glass-shadow-soft)]",
+            !isMobile && "hover:bg-[var(--liquid-glass-hover-bg)]",
           ],
           today && [
             "bg-[--primary]/10 dark:bg-[--primary]/15",
@@ -178,8 +187,8 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
             "shadow-[0_4px_16px_rgba(201,100,68,0.12),inset_0_1px_0_rgba(255,255,255,0.6)]",
           ],
           outside && [
-            "bg-white/20 dark:bg-white/[0.015]",
-            "border border-white/30 dark:border-white/[0.04]",
+            "bg-[var(--liquid-glass-bg-soft)]",
+            "border border-[var(--liquid-glass-border-soft)]",
           ],
         )}
       >
@@ -244,7 +253,7 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
           </Button>
           <span className="text-sm font-semibold ml-1">{title}</span>
         </div>
-        <div className="flex rounded-lg bg-white/40 dark:bg-white/[0.05] border border-white/60 dark:border-white/[0.1] backdrop-blur-sm overflow-hidden text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+        <div className="flex rounded-lg bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] backdrop-blur-sm overflow-hidden text-xs shadow-[var(--liquid-glass-shadow-soft)]">
           {([["week", t.timeline.weekView], ["month", t.timeline.monthView]] as const).map(([v, label]) => (
             <button
               key={v}
@@ -268,12 +277,10 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
         <div
           className={cn(
             "rounded-3xl overflow-hidden p-3",
-            // Outer frosted container
-            "bg-[--muted]/60 dark:bg-[--muted]/40",
+            "bg-[var(--liquid-glass-bg-soft)]",
             "backdrop-filter backdrop-blur-2xl",
-            "border border-white/40 dark:border-white/[0.06]",
-            "shadow-[0_8px_40px_rgba(0,0,0,0.07),inset_0_1px_0_rgba(255,255,255,0.6)]",
-            "dark:shadow-[0_8px_40px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.04)]",
+            "border border-[var(--liquid-glass-border)]",
+            "shadow-[var(--liquid-glass-shadow)]",
           )}
         >
           {/* Weekday header */}
@@ -338,20 +345,12 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
 
   // Desktop: main content + spring panel on right
   return (
-    <div
-      className="flex gap-4 items-start min-w-0"
-      onClick={(e) => {
-        if (panelVisibleRef.current && panelRef.current && !panelRef.current.contains(e.target as Node)) {
-          onClosePanel()
-        }
-      }}
-    >
-      <div className="flex-1 min-w-0">{mainContent}</div>
+    <div className="flex gap-6 items-stretch min-w-0">
+      <div className="flex-1 min-w-0" onClick={onMainAreaClick}>{mainContent}</div>
 
       {/* Panel wrapper — width animates with ease-out-expo */}
       <div
-        ref={panelRef}
-        className="flex-shrink-0 overflow-hidden"
+        className="flex-shrink-0 overflow-hidden self-stretch"
         style={{
           width: panelVisible ? PANEL_W : 0,
           transition: "width 0.42s cubic-bezier(0.16, 1, 0.3, 1)",
@@ -359,10 +358,10 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
       >
         {selectedTask && (
           <div
-            className="sticky top-4"
+            className="sticky top-20"
             style={{
               width: PANEL_W,
-              maxHeight: "calc(100vh - 120px)",
+              height: "calc(100vh - 6.5rem)",
               opacity: panelVisible ? 1 : 0,
               transform: panelVisible ? "translateX(0)" : "translateX(32px)",
               transition: [

@@ -37,7 +37,7 @@ export function InboxList({ items }: { items: InboxItem[] }) {
   return (
     <div className="space-y-3 max-w-2xl">
       {items.map((item) => (
-        <div key={item.id} className="p-4 rounded-xl space-y-3 card-hover bg-white/50 dark:bg-white/[0.04] border border-white/60 dark:border-white/[0.07] backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5)]">
+        <div key={item.id} className="p-4 rounded-xl space-y-3 card-hover bg-[var(--liquid-glass-bg)] border border-[var(--liquid-glass-border)] backdrop-blur-md shadow-[var(--liquid-glass-shadow-soft)]">
           <div className="flex items-start gap-3">
             <Inbox className="w-4 h-4 text-[--muted-foreground] mt-0.5 flex-shrink-0" />
             <div className="flex-1 min-w-0">

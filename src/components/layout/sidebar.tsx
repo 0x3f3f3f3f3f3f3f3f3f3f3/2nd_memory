@@ -11,6 +11,7 @@ import { useI18n } from "@/contexts/locale-context"
 export function Sidebar({ username }: { username: string }) {
   const pathname = usePathname()
   const { t, locale, setLocale } = useI18n()
+  const logoutAction = `/api/auth/logout?from=${encodeURIComponent(pathname || "/")}`
 
   const navItems = [
     { href: "/inbox", label: t.nav.inbox, icon: Inbox },
@@ -34,10 +35,10 @@ export function Sidebar({ username }: { username: string }) {
           onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
           className={cn(
             "ml-auto text-[10px] px-1.5 py-0.5 rounded-md transition-colors",
-            "border border-white/40 dark:border-white/[0.1]",
+            "border border-[var(--liquid-glass-border)]",
             "text-[--muted-foreground] hover:text-[--foreground]",
-            "hover:border-white/60 dark:hover:border-white/[0.2]",
-            "hover:bg-white/40 dark:hover:bg-white/[0.05]",
+            "hover:border-[var(--liquid-glass-border)]",
+            "hover:bg-[var(--liquid-glass-hover-bg)]",
           )}
         >
           {t.switchLanguage}
@@ -74,7 +75,7 @@ export function Sidebar({ username }: { username: string }) {
       <div className="gradient-divider mx-3" />
 
       {/* User info */}
-      <div className="mx-2 mb-1 px-3 py-2.5 rounded-xl flex items-center gap-2.5 bg-white/30 dark:bg-white/[0.04] border border-white/50 dark:border-white/[0.07]">
+      <div className="mx-2 mb-1 px-3 py-2.5 rounded-xl flex items-center gap-2.5 bg-[var(--liquid-glass-bg)] border border-[var(--liquid-glass-border)] shadow-[var(--liquid-glass-shadow-soft)]">
         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#C96444] to-[#E08060] flex items-center justify-center flex-shrink-0 shadow-[0_2px_8px_rgba(201,100,68,0.3)]">
           <span className="text-[11px] font-bold text-white leading-none">
             {username.charAt(0).toUpperCase()}
@@ -100,7 +101,7 @@ export function Sidebar({ username }: { username: string }) {
           <Settings className="w-4 h-4" />
           {t.nav.settings}
         </Link>
-        <form action="/api/auth/logout" method="POST">
+        <form action={logoutAction} method="POST">
           <button
             type="submit"
             className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm w-full text-[--muted-foreground] hover:bg-[--accent]/60 hover:text-[--foreground] transition-colors"

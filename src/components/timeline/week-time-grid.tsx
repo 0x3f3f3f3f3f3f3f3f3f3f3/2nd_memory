@@ -47,10 +47,10 @@ function formatDuration(mins: number): string {
 
 /* priority palette */
 const P_BG: Record<string, string> = {
-  LOW:    "bg-stone-50/80 dark:bg-stone-900/50 border-stone-200/60 dark:border-stone-700/40",
-  MEDIUM: "bg-sky-50/80 dark:bg-sky-900/40 border-sky-200/60 dark:border-sky-700/40",
-  HIGH:   "bg-orange-50/80 dark:bg-orange-900/40 border-orange-200/60 dark:border-orange-700/40",
-  URGENT: "bg-red-50/80 dark:bg-red-900/40 border-red-200/60 dark:border-red-700/40",
+  LOW:    "bg-stone-50/80 border-stone-200/60",
+  MEDIUM: "bg-sky-50/80 border-sky-200/60",
+  HIGH:   "bg-orange-50/80 border-orange-200/60",
+  URGENT: "bg-red-50/80 border-red-200/60",
 }
 const P_TEXT: Record<string, string> = {
   LOW: "text-stone-700 dark:text-stone-300",
@@ -58,6 +58,7 @@ const P_TEXT: Record<string, string> = {
   HIGH: "text-orange-700 dark:text-orange-300",
   URGENT: "text-red-700 dark:text-red-300",
 }
+const DARK_TASK_SURFACE = "dark:!bg-[var(--liquid-glass-bg-strong)] dark:!border-[var(--liquid-glass-border)] dark:!shadow-none dark:!backdrop-blur-none"
 const P_DOT: Record<string, string> = {
   LOW: "bg-stone-400", MEDIUM: "bg-sky-400", HIGH: "bg-orange-400", URGENT: "bg-red-500",
 }
@@ -75,8 +76,20 @@ function DragGhost({ task, x, y, dropTime, dragOffX, dragOffY }: {
 }) {
   const el = (
     <div
-      style={{ position: "fixed", left: x - dragOffX, top: y - dragOffY, width: 140, zIndex: 9999, pointerEvents: "none" }}
-      className={cn("px-2.5 py-2 rounded-xl border backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.15)] opacity-90 rotate-1", P_BG[task.priority])}
+      style={{
+        position: "fixed",
+        left: x - dragOffX,
+        top: y - dragOffY,
+        width: 140,
+        zIndex: 9999,
+        pointerEvents: "none",
+        background: "var(--liquid-glass-bg-strong)",
+        borderColor: "var(--liquid-glass-border)",
+      }}
+      className={cn(
+        "px-2.5 py-2 rounded-xl border border-l-[3px] opacity-95 rotate-1 shadow-none backdrop-blur-none",
+        BORDER_L[task.priority]
+      )}
     >
       <div className="flex items-center gap-1.5 mb-0.5">
         <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", P_DOT[task.priority])} />
@@ -86,21 +99,6 @@ function DragGhost({ task, x, y, dropTime, dragOffX, dragOffY }: {
     </div>
   )
   return typeof document !== "undefined" ? createPortal(el, document.body) : null
-}
-
-/* ── Drop preview ── */
-function DropPreview({ top, priority }: { top: number; priority: string }) {
-  return (
-    <div
-      style={{ position: "absolute", top, height: (DEFAULT_DUR / 60) * HOUR_HEIGHT, left: 3, right: 3, zIndex: 8, pointerEvents: "none" }}
-      className={cn(
-        "rounded-xl border-2 border-dashed opacity-50",
-        priority === "URGENT" ? "border-red-400" :
-        priority === "HIGH"   ? "border-orange-400" :
-        priority === "MEDIUM" ? "border-sky-400" : "border-stone-300",
-      )}
-    />
-  )
 }
 
 /* ── Time block on grid ── */
@@ -122,6 +120,8 @@ function BlockOnGrid({
   onSelectTask?: (task: TaskWithRelations) => void
 }) {
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isDark, setIsDark] = useState(false)
   const blockRef = useRef<HTMLDivElement>(null)
   const timeLabelRef = useRef<HTMLParagraphElement>(null)
   const wasDragged = useRef(false)
@@ -135,6 +135,19 @@ function BlockOnGrid({
   const top      = (startMin / 60) * HOUR_HEIGHT
   const height   = Math.max((dur / 60) * HOUR_HEIGHT, 28)
   const showTime = height >= 44
+
+  useEffect(() => {
+    const syncTheme = () => setIsDark(document.documentElement.classList.contains("dark"))
+    syncTheme()
+
+    const observer = new MutationObserver(syncTheme)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    })
+
+    return () => observer.disconnect()
+  }, [])
 
   function fmtMin(m: number) {
     return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`
@@ -158,7 +171,10 @@ function BlockOnGrid({
     function onMove(ev: PointerEvent) {
       const dy = ev.clientY - startY
       const dx = ev.clientX - startX
-      if (Math.abs(dy) > 3 || Math.abs(dx) > 3) wasDragged.current = true
+      if (Math.abs(dy) > 3 || Math.abs(dx) > 3) {
+        wasDragged.current = true
+        setIsDragging(true)
+      }
       const rawStart = origStartMin + (dy / HOUR_HEIGHT) * 60
       const newStart = snapMin(clamp(rawStart, 0, 24 * 60 - origDur))
       const newEnd   = newStart + origDur
@@ -184,6 +200,7 @@ function BlockOnGrid({
     function onUp() {
       window.removeEventListener("pointermove", onMove)
       window.removeEventListener("pointerup", onUp)
+      setIsDragging(false)
       el.style.transform = ""
       if (!wasDragged.current) { if (onSelectTask) { onSelectTask(task) } else { setDialogOpen(true) }; return }
       const newStartMin = parseInt(el.dataset.curStart  ?? String(origStartMin))
@@ -209,6 +226,7 @@ function BlockOnGrid({
 
     function onMove(ev: PointerEvent) {
       const dy     = ev.clientY - startY
+      if (Math.abs(dy) > 3) setIsDragging(true)
       const rawEnd = origEnd + (dy / HOUR_HEIGHT) * 60
       const newEnd = snapMin(clamp(rawEnd, startMin + MIN_DUR, 24 * 60))
       el.style.height = `${Math.max(((newEnd - startMin) / 60) * HOUR_HEIGHT, 28)}px`
@@ -222,6 +240,7 @@ function BlockOnGrid({
     function onUp() {
       window.removeEventListener("pointermove", onMove)
       window.removeEventListener("pointerup", onUp)
+      setIsDragging(false)
       const newEndMin = parseInt(el.dataset.curEnd ?? String(origEnd))
       const newEnd    = applyMin(dayDate, newEndMin)
       onBlockMove(block.id, effectiveStart, newEnd)
@@ -235,24 +254,44 @@ function BlockOnGrid({
     <>
       <div
         ref={blockRef}
+        data-timeline-task-trigger="true"
         data-block-id={block.id}
-        style={{ top, height, position: "absolute", left: 3, right: 3, zIndex: 10, touchAction: "none", userSelect: "none" }}
+        style={{
+          top,
+          height,
+          position: "absolute",
+          left: 3,
+          right: 3,
+          zIndex: 10,
+          touchAction: "none",
+          userSelect: "none",
+          ...(isDark
+            ? {
+                background: "var(--liquid-glass-bg-strong)",
+                borderColor: "var(--liquid-glass-border)",
+                boxShadow: "none",
+                backdropFilter: "none",
+                WebkitBackdropFilter: "none",
+              }
+            : {}),
+        }}
         className={cn(
-          "group rounded-xl border select-none overflow-hidden backdrop-blur-md",
-          "shadow-[0_2px_12px_rgba(0,0,0,0.07),inset_0_1px_0_rgba(255,255,255,0.5)]",
-          "hover:shadow-[0_4px_20px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.6)]",
+          "group rounded-xl border select-none overflow-hidden backdrop-blur-md dark:backdrop-blur-none",
+          "shadow-[0_2px_12px_rgba(0,0,0,0.07),inset_0_1px_0_rgba(255,255,255,0.5)] dark:shadow-none",
+          "hover:shadow-[0_4px_20px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.6)] dark:hover:shadow-none",
           "transition-shadow duration-150",
+          isDragging && "timeline-grid-block-dragging",
           P_BG[task.priority],
           task.status === "DONE" && "opacity-50",
         )}
         onPointerDown={onMoveDown}
       >
         <button
-          className="absolute top-1 right-1 z-20 w-6 h-6 md:w-4 md:h-4 rounded-full bg-black/20 dark:bg-white/20 flex items-center justify-center hover:bg-black/40 dark:hover:bg-white/40 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 -mt-2 -mr-2 md:mt-0 md:mr-0"
+          className="absolute top-1 right-1 z-20 w-6 h-6 md:w-4 md:h-4 rounded-full bg-black/20 dark:bg-black/35 flex items-center justify-center hover:bg-black/40 dark:hover:bg-black/55 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 -mt-2 -mr-2 md:mt-0 md:mr-0"
           onPointerDown={e => { e.stopPropagation() }}
           onClick={e => { e.stopPropagation(); onBlockDelete(block.id) }}
         >
-          <X className="w-3 h-3 md:w-2.5 md:h-2.5 text-white dark:text-black" />
+          <X className="w-3 h-3 md:w-2.5 md:h-2.5 text-white" />
         </button>
 
         <div className="px-2 pt-1.5 pb-4 h-full flex flex-col gap-0.5 overflow-hidden cursor-grab active:cursor-grabbing">
@@ -301,6 +340,7 @@ function DayChip({ task, day, allTags, onDragStart, onRemove, onSelectTask }: {
   return (
     <>
       <div
+        data-timeline-task-trigger="true"
         className={cn(
           "group flex items-center gap-1 px-1.5 py-[3px] rounded-md text-[10px] select-none cursor-grab active:cursor-grabbing",
           "glass-row-hover",
@@ -346,14 +386,16 @@ function TaskCard({ task, onDragStart, onDetailOpen }: {
 
   return (
     <div
+      data-timeline-task-trigger="true"
       style={{ touchAction: "none", userSelect: "none" }}
       className={cn(
         "px-2.5 py-2 rounded-xl border-l-[3px] cursor-grab active:cursor-grabbing select-none",
-        "bg-white/55 dark:bg-white/[0.05]",
-        "border border-white/70 dark:border-white/[0.08]",
-        "shadow-[0_1px_4px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.6)]",
-        "hover:bg-white/75 dark:hover:bg-white/[0.08] hover:-translate-y-px hover:shadow-md",
+        "bg-[var(--liquid-glass-bg)]",
+        "border border-[var(--liquid-glass-border)]",
+        "shadow-[var(--liquid-glass-shadow-soft)] dark:shadow-none",
+        "hover:bg-[var(--liquid-glass-hover-bg)] hover:-translate-y-px hover:shadow-md dark:hover:shadow-none",
         "active:scale-[0.97] transition-all duration-150",
+        DARK_TASK_SURFACE,
         BORDER_L[task.priority],
       )}
       onPointerDown={e => onDragStart(task, e)}
@@ -399,10 +441,10 @@ function TaskPanel({
       <div className={cn(
         "mb-3 px-3 py-2.5 rounded-2xl",
         "max-h-24 overflow-x-auto overflow-y-hidden",
-        "bg-white/40 dark:bg-white/[0.03]",
-        "border border-white/50 dark:border-white/[0.06]",
+        "bg-[var(--liquid-glass-bg-soft)]",
+        "border border-[var(--liquid-glass-border)]",
         "backdrop-blur-md",
-        "shadow-[0_2px_8px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.5)]",
+        "shadow-[var(--liquid-glass-shadow-soft)]",
       )}>
         <p className="text-[11px] font-semibold text-[--muted-foreground] mb-2">
           {t.timeline.taskPanelMobile}
@@ -411,10 +453,11 @@ function TaskPanel({
           {tasks.map(tk => (
             <div
               key={tk.id}
+              data-timeline-task-trigger="true"
               style={{ userSelect: "none" }}
               className={cn(
                 "text-xs px-2.5 py-1.5 rounded-lg border flex-shrink-0 active:scale-95 transition-all",
-                P_BG[tk.priority], P_TEXT[tk.priority],
+                P_BG[tk.priority], DARK_TASK_SURFACE, P_TEXT[tk.priority],
               )}
               onClick={() => onSelectTask ? onSelectTask(tk) : (setSel(tk), setOpen(true))}
             >
@@ -433,23 +476,18 @@ function TaskPanel({
   /* Desktop: sidebar */
   return (
     <div className={cn(
-      "flex flex-col w-52 flex-shrink-0 rounded-3xl overflow-hidden",
-      "bg-[--muted]/30 dark:bg-[--muted]/15",
-      "backdrop-filter backdrop-blur-2xl",
-      "border border-white/40 dark:border-white/[0.07]",
-      "shadow-[0_8px_40px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]",
-      "dark:shadow-[0_8px_40px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.04)]",
-    )}>
+      "glass-flat-panel panel-flat-surface flex flex-col w-52 flex-shrink-0 rounded-3xl overflow-hidden",
+    )} style={{ contain: "paint" }}>
       <div className={cn(
         "px-3.5 py-3 flex-shrink-0",
-        "bg-white/60 dark:bg-black/20 backdrop-blur-xl",
-        "border-b border-white/40 dark:border-white/[0.06]",
+        "bg-[var(--liquid-glass-bg)]",
+        "border-b border-[var(--liquid-glass-border-soft)]",
       )}>
         <p className="text-sm font-semibold">{t.timeline.taskPanelTitle}</p>
         <p className="text-[10px] text-[--muted-foreground]/60 mt-0.5">{t.timeline.taskPanelHint}</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5 min-h-0">
+      <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-1.5 min-h-0">
         {tasks.length === 0 && (
           <p className="text-[11px] text-[--muted-foreground]/40 text-center mt-10">
             {t.timeline.noTasks}
@@ -483,8 +521,9 @@ function HourCells({ today }: { today: boolean }) {
             key={h}
             style={{ position: "absolute", top: h * HOUR_HEIGHT + 1, height: HOUR_HEIGHT - 2, left: 2, right: 2, zIndex: 0, borderRadius: 8 }}
             className={cn(
-              isWorkHour ? "bg-white/[0.055] dark:bg-white/[0.03]" : "bg-white/[0.02] dark:bg-white/[0.01]",
-              today && isWorkHour && "bg-[--primary]/[0.025] dark:bg-[--primary]/[0.015]",
+              "timeline-hour-cell",
+              isWorkHour ? "bg-white/[0.055]" : "bg-white/[0.02]",
+              today && isWorkHour && "bg-[--primary]/[0.025]",
             )}
           />
         )
@@ -493,7 +532,7 @@ function HourCells({ today }: { today: boolean }) {
         <div
           key={`hh-${h}`}
           style={{ position: "absolute", top: h * HOUR_HEIGHT + HOUR_HEIGHT / 2, left: 8, right: 8, height: 1, zIndex: 1, borderRadius: 1 }}
-          className="bg-[--foreground]/[0.06] dark:bg-white/[0.04]"
+          className="timeline-hour-divider bg-[--foreground]/[0.06]"
         />
       ))}
     </>
@@ -772,7 +811,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
                     ? "glass-seg-active"
                     : dayIsToday
                     ? "bg-[--primary]/10 text-[--primary]"
-                    : "bg-white/40 dark:bg-white/[0.04] text-[--muted-foreground]",
+                    : "bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] text-[--muted-foreground]",
                   !isSelected && "active:scale-95",
                 )}
               >
@@ -789,12 +828,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
 
         <div
           className={cn(
-            "rounded-3xl overflow-hidden",
-            "bg-[--muted]/30 dark:bg-[--muted]/15",
-            "backdrop-filter backdrop-blur-2xl",
-            "border border-white/40 dark:border-white/[0.07]",
-            "shadow-[0_8px_40px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]",
-            "dark:shadow-[0_8px_40px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.04)]",
+            "glass-flat-panel panel-flat-surface rounded-3xl overflow-hidden",
           )}
           style={{ height: "calc(100dvh - 200px)", minHeight: 300 }}
         >
@@ -849,25 +883,20 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
 
   /* ── Desktop: sidebar + 7-column week view ── */
   return (
-    <div className="flex gap-3" style={{ height: "calc(100dvh - 260px)", minHeight: 400 }}>
+    <div className="flex gap-3" style={{ height: "calc(100dvh - 260px)", minHeight: 400, overflow: "clip" }}>
       {/* All Tasks sidebar */}
       <TaskPanel tasks={panelTasks} allTags={allTags} onChipDragStart={startPanelDrag} isMobile={false} onSelectTask={onSelectTask} />
 
       {/* Week grid: flex-col so header + scroll fill full height */}
       <div className={cn(
-        "flex-1 min-w-0 flex flex-col rounded-3xl overflow-hidden",
-        "bg-[--muted]/30 dark:bg-[--muted]/15",
-        "backdrop-filter backdrop-blur-2xl",
-        "border border-white/40 dark:border-white/[0.07]",
-        "shadow-[0_8px_40px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.6)]",
-        "dark:shadow-[0_8px_40px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.04)]",
+        "glass-flat-panel panel-flat-surface flex-1 min-w-0 flex flex-col rounded-3xl overflow-hidden",
       )}>
 
         {/* Fixed header: day names + per-day chip rows */}
         <div className={cn(
           "flex-shrink-0",
-          "bg-white/60 dark:bg-black/20 backdrop-blur-xl",
-          "border-b border-white/40 dark:border-white/[0.06]",
+          "bg-[var(--liquid-glass-bg)] backdrop-blur-xl",
+          "border-b border-[var(--liquid-glass-border-soft)]",
         )}>
           {/* Day name row */}
           <div className="flex">
@@ -907,7 +936,6 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
               const dayTasks = getUniqueTasksForDay(day)
               const dayTaskIds = new Set(dayTasks.map(t => t.id))
               const pendingForDay = pendingDayTasks.filter(p => p.dayIdx === i && !dayTaskIds.has(p.taskId))
-              const isChipTarget = ghost?.isChipDrop && ghost?.targetCol === i
               return (
                 <div
                   key={i}
@@ -915,7 +943,6 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
                   className={cn(
                     "flex-1 overflow-y-auto p-1 space-y-[2px]",
                     i > 0 && "week-day-divider",
-                    isChipTarget && "bg-[--primary]/[0.05] ring-inset ring-1 ring-[--primary]/10",
                     "transition-colors duration-100",
                   )}
                 >
@@ -952,7 +979,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
         </div>
 
         {/* Scrollable time grid */}
-        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto" onScroll={measureAll}>
+        <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden" onScroll={measureAll}>
           <div className="flex" style={{ minHeight: 24 * HOUR_HEIGHT }}>
             {/* Time gutter */}
             <div className="w-12 flex-shrink-0 relative">
@@ -969,7 +996,6 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
             {weekDays.map((day, colIdx) => {
               const dayIsToday = isToday(day)
               const dayBlocks = getBlocksForDay(day)
-              const isDropTarget = ghost?.targetCol === colIdx && !ghost?.isChipDrop
               return (
                 <div
                   key={colIdx}
@@ -977,15 +1003,10 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
                   className={cn(
                     "flex-1 relative",
                     colIdx > 0 && "week-day-divider",
-                    isDropTarget && "bg-[--primary]/[0.03]",
                   )}
                   style={{ minHeight: 24 * HOUR_HEIGHT }}
                 >
                   <HourCells today={dayIsToday} />
-
-                  {isDropTarget && ghost && (
-                    <DropPreview top={(ghost.targetMin / 60) * HOUR_HEIGHT} priority={ghost.task.priority} />
-                  )}
 
                   {dayIsToday && (
                     <div

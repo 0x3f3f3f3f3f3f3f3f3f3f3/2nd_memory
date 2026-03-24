@@ -83,7 +83,7 @@ export function NoteForm({ note, tags }: NoteFormProps) {
 
       <div className="space-y-1.5">
         <Label>正文</Label>
-        <div className="rounded-lg overflow-hidden border border-white/50 dark:border-white/[0.1]">
+        <div className="note-vditor-shell glass-flat-panel rounded-lg overflow-hidden">
           <VditorEditor value={contentMd} onChange={setContentMd} />
         </div>
       </div>

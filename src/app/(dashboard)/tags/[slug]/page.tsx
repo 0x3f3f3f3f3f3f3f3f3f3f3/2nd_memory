@@ -6,10 +6,16 @@ import { TaskItem } from "@/components/tasks/task-item"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cookies } from "next/headers"
+import { getT } from "@/lib/i18n"
+import { LOCALE_COOKIE, isLocale } from "@/lib/preferences"
 
 export default async function TagPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const userId = await getCurrentUserId()
+  const cookieStore = await cookies()
+  const localeValue = cookieStore.get(LOCALE_COOKIE)?.value
+  const t = getT(isLocale(localeValue) ? localeValue : "zh")
   const tag = await prisma.tag.findUnique({
     where: { userId_slug: { userId: userId, slug } },
     include: {
@@ -32,7 +38,7 @@ export default async function TagPage({ params }: { params: Promise<{ slug: stri
         title={tag.name}
         actions={
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/tags"><ArrowLeft className="w-4 h-4" />标签</Link>
+            <Link href="/tags"><ArrowLeft className="w-4 h-4" />{t.nav.tags}</Link>
           </Button>
         }
       />
@@ -43,13 +49,13 @@ export default async function TagPage({ params }: { params: Promise<{ slug: stri
           {tag.description && <span className="text-sm text-[--muted-foreground]">{tag.description}</span>}
         </div>
         <div className="flex gap-4 text-sm text-[--muted-foreground]">
-          <span>{tasks.length} 个任务</span>
-          <span>{notes.length} 篇笔记</span>
+          <span>{t.tagsPage.tasksCount(tasks.length)}</span>
+          <span>{t.tagsPage.notesCount(notes.length)}</span>
         </div>
 
         {tasks.length > 0 && (
           <section>
-            <h2 className="text-sm font-semibold mb-3">任务</h2>
+            <h2 className="text-sm font-semibold mb-3">{t.nav.tasks}</h2>
             <div className="space-y-2">
               {tasks.map((task) => <TaskItem key={task.id} task={task} />)}
             </div>
@@ -58,10 +64,10 @@ export default async function TagPage({ params }: { params: Promise<{ slug: stri
 
         {notes.length > 0 && (
           <section>
-            <h2 className="text-sm font-semibold mb-3">笔记</h2>
+            <h2 className="text-sm font-semibold mb-3">{t.nav.notes}</h2>
             <div className="space-y-2">
               {notes.map((note) => (
-                <Link key={note.id} href={`/notes/${note.id}`} className="block p-3 rounded-xl bg-white/45 dark:bg-white/[0.03] border border-white/50 dark:border-white/[0.06] backdrop-blur-md hover:bg-white/65 dark:hover:bg-white/[0.06] transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.03),inset_0_1px_0_rgba(255,255,255,0.5)]">
+                <Link key={note.id} href={`/notes/${note.id}`} className="block p-3 rounded-xl bg-[var(--liquid-glass-bg)] border border-[var(--liquid-glass-border)] backdrop-blur-md hover:bg-[var(--liquid-glass-hover-bg)] transition-colors shadow-[var(--liquid-glass-shadow-soft)]">
                   <p className="text-sm font-medium">{note.title}</p>
                   {note.summary && <p className="text-xs text-[--muted-foreground] mt-0.5">{note.summary}</p>}
                 </Link>

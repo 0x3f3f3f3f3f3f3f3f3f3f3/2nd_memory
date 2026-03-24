@@ -77,7 +77,11 @@ export function isOverdue(date: Date | string | null | undefined, tz?: string): 
   return toTz(date, timezone) < nowInTz(timezone)
 }
 
-export function getDueLabel(date: Date | string | null | undefined, tz?: string): string {
+export function getDueLabel(
+  date: Date | string | null | undefined,
+  tz?: string,
+  options?: { suppressOverdue?: boolean }
+): string {
   if (!date) return ''
   const timezone = tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone
   const d = toTz(date, timezone)
@@ -86,7 +90,10 @@ export function getDueLabel(date: Date | string | null | undefined, tz?: string)
   const todayEnd = addDays(todayStart, 1)
   const tomorrowEnd = addDays(todayStart, 2)
 
-  if (d < todayStart) return '已逾期'
+  if (d < todayStart) {
+    if (options?.suppressOverdue) return format(d, 'M月d日', { locale: zhCN })
+    return '已逾期'
+  }
   if (d < todayEnd) return '今天'
   if (d < tomorrowEnd) return '明天'
   return format(d, 'M月d日', { locale: zhCN })

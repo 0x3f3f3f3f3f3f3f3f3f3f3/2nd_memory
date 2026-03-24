@@ -55,6 +55,8 @@ function DdlRow({
 
   return (
     <div
+      data-ddl-task-trigger="true"
+      onClick={() => onSelectTask(task)}
       className={cn(
         "flex items-center gap-1 text-[10px] leading-[1.5rem] px-1 rounded-md cursor-pointer group/row",
         "glass-row-hover w-full",
@@ -75,10 +77,7 @@ function DdlRow({
           "min-w-[24px] min-h-[24px] md:min-w-0 md:min-h-0 flex items-center justify-center",
         )}
       />
-      <span
-        onClick={e => { e.stopPropagation(); onSelectTask(task) }}
-        className={cn("truncate text-[--foreground]/80 flex-1", localStatus === "DONE" && "line-through")}
-      >
+      <span className={cn("truncate text-[--foreground]/80 flex-1", localStatus === "DONE" && "line-through")}>
         {task.title}
       </span>
     </div>
@@ -214,6 +213,7 @@ function MonthDdlCell({
           ))}
           {ddls.length > MAX && (
             <button
+              data-ddl-task-trigger="true"
               onClick={() => onSelectTask(ddls[MAX])}
               className="text-[9px] text-[--muted-foreground]/60 pl-1 leading-4 hover:text-[--primary] transition-colors"
             >
@@ -254,20 +254,21 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL")
   const [ddlFilter, setDdlFilter] = useState<DdlFilter>("ALL")
+  const effectiveDdlFilter = view === "list" ? ddlFilter : "ALL"
 
   const filteredTasks = tasks.filter(task => {
     if (statusFilter !== "ALL" && task.status !== statusFilter) return false
-    if (ddlFilter !== "ALL") {
+    if (effectiveDdlFilter !== "ALL") {
       const now = chinaNow()
       const due = task.dueAt ? toChina(task.dueAt) : null
       if (!due) return false
-      if (ddlFilter === "TODAY" && !isToday(due)) return false
-      if (ddlFilter === "TOMORROW" && !isTomorrow(due)) return false
-      if (ddlFilter === "THIS_WEEK") {
+      if (effectiveDdlFilter === "TODAY" && !isToday(due)) return false
+      if (effectiveDdlFilter === "TOMORROW" && !isTomorrow(due)) return false
+      if (effectiveDdlFilter === "THIS_WEEK") {
         const weekEnd = endOfWeek(now, { weekStartsOn: 1 })
         if (due < startOfDay(now) || due > weekEnd) return false
       }
-      if (ddlFilter === "THIS_MONTH") {
+      if (effectiveDdlFilter === "THIS_MONTH") {
         const monthStart = startOfMonth(now)
         const monthEnd = endOfMonth(now)
         if (due < monthStart || due > monthEnd) return false
@@ -293,6 +294,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
     // Slide out, then unmount after transition completes
     setPanelVisible(false)
     panelVisibleRef.current = false
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     closeTimerRef.current = setTimeout(() => {
       setSelectedTask(null)
       closeTimerRef.current = null
@@ -301,7 +303,14 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
 
   const onSelectTask = useCallback((task: TaskWithRelations) => {
     // Cancel any in-progress close animation
-    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    if (panelVisibleRef.current && selectedTask?.id === task.id) {
+      onClosePanel()
+      return
+    }
     // Panel already open → just swap content, no animation flicker
     if (panelVisibleRef.current) {
       setSelectedTask(task)
@@ -314,7 +323,17 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
       setPanelVisible(true)
       panelVisibleRef.current = true
     }))
-  }, [])
+  }, [onClosePanel, selectedTask])
+
+  const onMainAreaClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!panelVisibleRef.current) return
+
+    const target = event.target as HTMLElement
+    if (target.closest("[data-ddl-task-trigger='true']")) return
+    if (target.closest("button, a, input, textarea, select, label, [role='button'], [data-radix-popper-content-wrapper]")) return
+
+    onClosePanel()
+  }, [onClosePanel])
 
   useEffect(() => {
     return () => {
@@ -489,7 +508,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
   return (
     <div className="flex gap-6 items-stretch min-w-0">
       {/* Main content — naturally compressed as panel wrapper expands */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0" onClick={onMainAreaClick}>
         {mainContent}
       </div>
 
@@ -504,6 +523,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
         {/* Inner panel — spring slides in from right (slight overshoot for Apple feel) */}
         {selectedTask && (
           <div
+            data-ddl-panel="true"
             className="sticky top-20"
             style={{
               width: PANEL_W,
