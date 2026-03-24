@@ -152,9 +152,6 @@ model Note {
   type               NoteType   @default(OTHER)
   importance         Importance @default(MEDIUM)
   isPinned           Boolean    @default(false)
-  nextReviewAt       DateTime?
-  lastReviewedAt     DateTime?
-  reviewIntervalDays Int?
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
   archivedAt         DateTime?
@@ -162,14 +159,12 @@ model Note {
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   noteTags   NoteTag[]
-  reviewLogs ReviewLog[]
   noteTasks  NoteTask[]
   linksFrom  NoteLink[]  @relation("fromNote")
   linksTo    NoteLink[]  @relation("toNote")
 
   @@unique([userId, slug])
   @@index([userId])
-  @@index([userId, nextReviewAt])
 }
 
 model NoteTag {
@@ -210,26 +205,6 @@ model NoteLink {
   toNote   Note @relation("toNote", fields: [toNoteId], references: [id], onDelete: Cascade)
 
   @@unique([fromNoteId, toNoteId])
-}
-
-enum ReviewRating {
-  FORGOT
-  VAGUE
-  REMEMBERED
-  EASY
-}
-
-model ReviewLog {
-  id               String       @id @default(cuid())
-  noteId           String
-  rating           ReviewRating
-  reviewedAt       DateTime     @default(now())
-  prevNextReviewAt DateTime?
-  nextNextReviewAt DateTime?
-
-  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
-
-  @@index([noteId])
 }
 
 enum ProcessType {

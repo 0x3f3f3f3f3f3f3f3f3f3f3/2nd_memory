@@ -4,8 +4,8 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
-  Sun, Inbox, Calendar, Sparkles, BookOpen, MoreHorizontal,
-  CheckSquare, Flag, RefreshCw, Tags, Search, Settings, LogOut, Globe,
+  Inbox, Calendar, Sparkles, BookOpen, MoreHorizontal,
+  CheckSquare, Tags, Search, Settings, LogOut, Globe,
 } from "lucide-react"
 import { useI18n } from "@/contexts/locale-context"
 
@@ -16,7 +16,6 @@ export function MobileNav() {
   const [moreOpen, setMoreOpen] = useState(false)
 
   const mainItems = [
-    { href: "/today", label: t.nav.today, icon: Sun },
     { href: "/inbox", label: t.nav.inboxMobile, icon: Inbox },
     { href: "/timeline", label: t.nav.scheduleMobile, icon: Calendar },
     { href: "/ai", label: t.nav.aiMobile, icon: Sparkles },
@@ -24,9 +23,7 @@ export function MobileNav() {
   ]
 
   const moreItems = [
-    { href: "/tasks", label: t.nav.tasks, icon: CheckSquare },
-    { href: "/ddl", label: t.nav.ddl, icon: Flag },
-    { href: "/review", label: t.nav.review, icon: RefreshCw },
+    { href: "/ddl", label: t.nav.tasks, icon: CheckSquare },
     { href: "/tags", label: t.nav.tags, icon: Tags },
     { href: "/search", label: t.nav.search, icon: Search },
     { href: "/settings", label: t.nav.settings, icon: Settings },

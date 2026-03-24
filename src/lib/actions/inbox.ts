@@ -2,8 +2,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/prisma"
 import { OWNER_USER_ID } from "@/lib/auth"
-import { slugify, calcNextReview } from "@/lib/utils"
-import { addDays } from "date-fns"
+import { slugify } from "@/lib/utils"
 
 export async function addToInbox(content: string) {
   const item = await prisma.inboxItem.create({
@@ -43,8 +42,6 @@ export async function processInboxItem(
         title,
         slug,
         contentMd: item.content,
-        nextReviewAt: addDays(new Date(), 1),
-        reviewIntervalDays: 1,
       },
     })
   }

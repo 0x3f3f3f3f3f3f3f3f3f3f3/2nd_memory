@@ -98,7 +98,7 @@ export function SettingsPanel() {
                   onClick={() => applyTheme(value)}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2.5 rounded-lg border text-sm transition-colors",
-                    theme === value ? "border-[--primary] bg-[--primary]/10 text-[--primary]" : "border-white/50 dark:border-white/[0.12] bg-white/30 dark:bg-white/[0.04] hover:bg-white/50 dark:hover:bg-white/[0.08]"
+                    theme === value ? "border-[--primary] bg-[--primary]/10 text-[--primary]" : "border-white/50 dark:border-white/[0.12] bg-white/30 dark:bg-white/[0.04] glass-seg-btn"
                   )}
                 >
                   <Icon className="w-4 h-4" />

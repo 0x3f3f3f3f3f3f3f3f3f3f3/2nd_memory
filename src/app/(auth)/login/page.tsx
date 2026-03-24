@@ -7,7 +7,7 @@ export const metadata = { title: "登录" }
 
 export default async function LoginPage() {
   const authed = await isAuthenticated()
-  if (authed) redirect("/today")
+  if (authed) redirect("/inbox")
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-50 via-[#FAF9F6] to-orange-50/40 dark:from-[#1C1917] dark:via-[#1C1917] dark:to-[#211E1B] px-4 relative overflow-hidden">
@@ -22,16 +22,12 @@ export default async function LoginPage() {
             <Sprout className="w-8 h-8 text-[--primary-foreground]" />
           </div>
           <h1 className="text-3xl font-bold text-gradient bg-gradient-to-r from-[#C96444] to-[#E08060] dark:from-[#D4785A] dark:to-[#E8906E]">
-            记忆花园
+            Sage
           </h1>
-          <p className="text-sm text-[--muted-foreground] mt-1.5">你的个人第二大脑</p>
         </div>
         <div className="glass rounded-2xl p-6">
           <LoginForm />
         </div>
-        <p className="text-center text-xs text-[--muted-foreground] mt-4">
-          私人专属 · 数据安全
-        </p>
       </div>
     </div>
   )

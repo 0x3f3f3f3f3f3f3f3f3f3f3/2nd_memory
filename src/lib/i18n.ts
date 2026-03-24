@@ -3,7 +3,7 @@ import { zhCN, enUS } from "date-fns/locale"
 export type Locale = "zh" | "en"
 
 const zh = {
-  appName: "记忆花园",
+  appName: "Sage",
   tagline: "我的第二大脑",
   owner: "花园主人",
   switchLanguage: "EN",
@@ -18,7 +18,6 @@ const zh = {
     ddl: "DDL",
     ai: "AI 助手",
     notes: "知识库",
-    review: "复习",
     tags: "标签",
     search: "搜索",
     settings: "设置",
@@ -37,8 +36,6 @@ const zh = {
     noTasksTitle: "今日暂无任务",
     noTasksDesc: "去任务列表添加一些吧",
     upcoming: "未来 7 天",
-    review: "今日复习",
-    reviewBadge: (n: number) => `${n} 条`,
   },
 
   tasks: {
@@ -140,16 +137,6 @@ const zh = {
     LOW: "一般",
   },
 
-  review: {
-    sectionTitle: "复习",
-    nextReview: (d: string) => `下次: ${d}`,
-    lastReview: (d: string) => `· 上次: ${d}`,
-    btnForgot: "忘了",
-    btnVague: "模糊",
-    btnRemembered: "记得",
-    btnEasy: "很熟",
-  },
-
   ddl: {
     pageTitle: "DDL",
     overdue: "已逾期",
@@ -165,6 +152,11 @@ const zh = {
     monthView: "月",
     allDeadlines: "所有截止日期",
     noDdl: "无 DDL",
+    ddlFilterAll: "所有",
+    ddlFilterToday: "今天",
+    ddlFilterTomorrow: "明天",
+    ddlFilterThisWeek: "本周",
+    ddlFilterThisMonth: "本月",
   },
 
   timeline: {
@@ -223,7 +215,7 @@ const zh = {
 export type T = typeof zh
 
 const en: T = {
-  appName: "Memory Garden",
+  appName: "Sage",
   tagline: "My Second Brain",
   owner: "Garden Owner",
   switchLanguage: "中文",
@@ -238,7 +230,6 @@ const en: T = {
     ddl: "DDL",
     ai: "AI Assistant",
     notes: "Notes",
-    review: "Review",
     tags: "Tags",
     search: "Search",
     settings: "Settings",
@@ -257,8 +248,6 @@ const en: T = {
     noTasksTitle: "No tasks for today",
     noTasksDesc: "Add some from the task list",
     upcoming: "Next 7 Days",
-    review: "Today's Review",
-    reviewBadge: (n: number) => `${n} items`,
   },
 
   tasks: {
@@ -360,16 +349,6 @@ const en: T = {
     LOW: "Normal",
   },
 
-  review: {
-    sectionTitle: "Review",
-    nextReview: (d: string) => `Next: ${d}`,
-    lastReview: (d: string) => `· Last: ${d}`,
-    btnForgot: "Forgot",
-    btnVague: "Vague",
-    btnRemembered: "Remembered",
-    btnEasy: "Easy",
-  },
-
   ddl: {
     pageTitle: "DDL",
     overdue: "Overdue",
@@ -385,6 +364,11 @@ const en: T = {
     monthView: "Month",
     allDeadlines: "All Deadlines",
     noDdl: "No DDL",
+    ddlFilterAll: "All",
+    ddlFilterToday: "Today",
+    ddlFilterTomorrow: "Tomorrow",
+    ddlFilterThisWeek: "This Week",
+    ddlFilterThisMonth: "This Month",
   },
 
   timeline: {

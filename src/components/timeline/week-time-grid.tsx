@@ -108,7 +108,7 @@ function BlockOnGrid({
   task, block, dayDate,
   colRectsRef, weekDays, allTags,
   localOverride,
-  onBlockMove, onBlockDelete,
+  onBlockMove, onBlockDelete, onSelectTask,
 }: {
   task: TaskWithRelations
   block: TimeBlock
@@ -119,6 +119,7 @@ function BlockOnGrid({
   localOverride?: LocalBlock
   onBlockMove: (blockId: string, start: Date, end: Date) => void
   onBlockDelete: (blockId: string) => void
+  onSelectTask?: (task: TaskWithRelations) => void
 }) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const blockRef = useRef<HTMLDivElement>(null)
@@ -184,7 +185,7 @@ function BlockOnGrid({
       window.removeEventListener("pointermove", onMove)
       window.removeEventListener("pointerup", onUp)
       el.style.transform = ""
-      if (!wasDragged.current) { setDialogOpen(true); return }
+      if (!wasDragged.current) { if (onSelectTask) { onSelectTask(task) } else { setDialogOpen(true) }; return }
       const newStartMin = parseInt(el.dataset.curStart  ?? String(origStartMin))
       const targetCol   = parseInt(el.dataset.curTarget ?? String(dayIndex))
       const newEndMin   = newStartMin + origDur
@@ -275,23 +276,26 @@ function BlockOnGrid({
         </div>
       </div>
 
-      <TaskDetailDialog
-        task={{ ...task, subTasks: task.subTasks ?? [] }}
-        allTags={allTags}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
+      {!onSelectTask && (
+        <TaskDetailDialog
+          task={{ ...task, subTasks: task.subTasks ?? [] }}
+          allTags={allTags}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
+      )}
     </>
   )
 }
 
 /* ── Day chip (in per-day task row) ── */
-function DayChip({ task, day, allTags, onDragStart, onRemove }: {
+function DayChip({ task, day, allTags, onDragStart, onRemove, onSelectTask }: {
   task: TaskWithRelations
   day: Date
   allTags: Tag[]
   onDragStart: (task: TaskWithRelations, e: React.PointerEvent) => void
   onRemove: () => void
+  onSelectTask?: (task: TaskWithRelations) => void
 }) {
   const [dialogOpen, setDialogOpen] = useState(false)
   return (
@@ -299,13 +303,13 @@ function DayChip({ task, day, allTags, onDragStart, onRemove }: {
       <div
         className={cn(
           "group flex items-center gap-1 px-1.5 py-[3px] rounded-md text-[10px] select-none cursor-grab active:cursor-grabbing",
-          "hover:bg-white/50 dark:hover:bg-white/[0.07] transition-colors",
+          "glass-row-hover",
           P_TEXT[task.priority],
           task.status === "DONE" && "opacity-40 line-through",
         )}
         style={{ touchAction: "none", userSelect: "none" }}
         onPointerDown={e => { e.preventDefault(); onDragStart(task, e) }}
-        onClick={() => setDialogOpen(true)}
+        onClick={() => onSelectTask ? onSelectTask(task) : setDialogOpen(true)}
         title={task.title}
       >
         <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", P_DOT[task.priority])} />
@@ -318,12 +322,14 @@ function DayChip({ task, day, allTags, onDragStart, onRemove }: {
           <X className="w-2.5 h-2.5" />
         </button>
       </div>
-      <TaskDetailDialog
-        task={{ ...task, subTasks: task.subTasks ?? [] }}
-        allTags={allTags}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
+      {!onSelectTask && (
+        <TaskDetailDialog
+          task={{ ...task, subTasks: task.subTasks ?? [] }}
+          allTags={allTags}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
+      )}
     </>
   )
 }
@@ -374,12 +380,13 @@ function TaskCard({ task, onDragStart, onDetailOpen }: {
 
 /* ── All Tasks sidebar panel ── */
 function TaskPanel({
-  tasks, allTags, onChipDragStart, isMobile,
+  tasks, allTags, onChipDragStart, isMobile, onSelectTask,
 }: {
   tasks: TaskWithRelations[]
   allTags: Tag[]
   onChipDragStart: (task: TaskWithRelations, e: React.PointerEvent) => void
   isMobile: boolean
+  onSelectTask?: (task: TaskWithRelations) => void
 }) {
   const t = useT()
   const [sel, setSel] = useState<TaskWithRelations | null>(null)
@@ -409,14 +416,14 @@ function TaskPanel({
                 "text-xs px-2.5 py-1.5 rounded-lg border flex-shrink-0 active:scale-95 transition-all",
                 P_BG[tk.priority], P_TEXT[tk.priority],
               )}
-              onClick={() => { setSel(tk); setOpen(true) }}
+              onClick={() => onSelectTask ? onSelectTask(tk) : (setSel(tk), setOpen(true))}
             >
               <span className={cn("inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle -mt-px", P_DOT[tk.priority])} />
               {tk.title}
             </div>
           ))}
         </div>
-        {sel && (
+        {!onSelectTask && sel && (
           <TaskDetailDialog task={{ ...sel, subTasks: sel.subTasks ?? [] }} allTags={allTags} open={open} onOpenChange={setOpen} />
         )}
       </div>
@@ -453,12 +460,12 @@ function TaskPanel({
             key={tk.id}
             task={tk}
             onDragStart={onChipDragStart}
-            onDetailOpen={() => { setSel(tk); setOpen(true) }}
+            onDetailOpen={() => onSelectTask ? onSelectTask(tk) : (setSel(tk), setOpen(true))}
           />
         ))}
       </div>
 
-      {sel && (
+      {!onSelectTask && sel && (
         <TaskDetailDialog task={{ ...sel, subTasks: sel.subTasks ?? [] }} allTags={allTags} open={open} onOpenChange={setOpen} />
       )}
     </div>
@@ -494,11 +501,12 @@ function HourCells({ today }: { today: boolean }) {
 }
 
 /* ── Main ── */
-export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
+export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSelectTask }: {
   tasks: TaskWithRelations[]
   allTags: Tag[]
   weekDays: Date[]
   isMobile?: boolean
+  onSelectTask?: (task: TaskWithRelations) => void
 }) {
   const t = useT()
   const [localBlocks, setLocalBlocks] = useState<Record<string, LocalBlock>>({})
@@ -675,6 +683,10 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
       window.removeEventListener("pointermove", onMove)
       window.removeEventListener("pointerup", onUp)
       setGhost(null)
+      if (didDrag) {
+        // Absorb the click event that fires after pointerup on the source element
+        document.addEventListener("click", e => { e.stopPropagation(); e.preventDefault() }, { capture: true, once: true })
+      }
       if (!didDrag) return
       const { col, min, isChipDrop } = computeDrop(ev.clientX, ev.clientY)
       if (col < 0) return
@@ -724,7 +736,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
 
     return (
       <div className="flex flex-col">
-        <TaskPanel tasks={panelTasks} allTags={allTags} onChipDragStart={startPanelDrag} isMobile />
+        <TaskPanel tasks={panelTasks} allTags={allTags} onChipDragStart={startPanelDrag} isMobile onSelectTask={onSelectTask} />
 
         <div className="flex gap-1 mb-3 px-1">
           {weekDays.map((day, i) => {
@@ -737,7 +749,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
                 className={cn(
                   "flex-1 py-2 rounded-xl text-center transition-all duration-150",
                   isSelected
-                    ? "bg-[--primary] text-[--primary-foreground] shadow-sm"
+                    ? "glass-seg-active"
                     : dayIsToday
                     ? "bg-[--primary]/10 text-[--primary]"
                     : "bg-white/40 dark:bg-white/[0.04] text-[--muted-foreground]",
@@ -804,6 +816,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
                     localOverride={localBlocks[block.id]}
                     onBlockMove={onBlockMove}
                     onBlockDelete={onBlockDelete}
+                    onSelectTask={onSelectTask}
                   />
                 ))}
               </div>
@@ -818,7 +831,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
   return (
     <div className="flex gap-3" style={{ height: "calc(100dvh - 260px)", minHeight: 400 }}>
       {/* All Tasks sidebar */}
-      <TaskPanel tasks={panelTasks} allTags={allTags} onChipDragStart={startPanelDrag} isMobile={false} />
+      <TaskPanel tasks={panelTasks} allTags={allTags} onChipDragStart={startPanelDrag} isMobile={false} onSelectTask={onSelectTask} />
 
       {/* Week grid: flex-col so header + scroll fill full height */}
       <div className={cn(
@@ -864,10 +877,10 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
 
           {/* Per-day task chip rows */}
           <div
-            className="flex border-t border-white/30 dark:border-white/[0.04]"
+            className="flex"
             style={{ height: CHIP_ROW_H }}
           >
-            <div className="w-12 flex-shrink-0 flex items-start justify-end pt-2 pr-2 border-r border-white/20 dark:border-white/[0.04]">
+            <div className="w-12 flex-shrink-0 flex items-start justify-end pt-2 pr-2">
               <p className="text-[8px] text-[--muted-foreground]/30 font-medium tracking-wider">任务</p>
             </div>
             {weekDays.map((day, i) => {
@@ -881,14 +894,11 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
                   ref={el => { chipAreaRefs.current[i] = el }}
                   className={cn(
                     "flex-1 overflow-y-auto p-1 space-y-[2px]",
-                    i > 0 && "border-l border-white/20 dark:border-white/[0.04]",
+                    i > 0 && "week-day-divider",
                     isChipTarget && "bg-[--primary]/[0.05] ring-inset ring-1 ring-[--primary]/10",
                     "transition-colors duration-100",
                   )}
                 >
-                  {dayTasks.length === 0 && pendingForDay.length === 0 && (
-                    <p className="text-[9px] text-[--muted-foreground]/20 text-center py-4">—</p>
-                  )}
                   {dayTasks.map(task => (
                     <DayChip
                       key={task.id}
@@ -897,6 +907,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
                       allTags={allTags}
                       onDragStart={startPanelDrag}
                       onRemove={() => onRemoveFromDay(task, day)}
+                      onSelectTask={onSelectTask}
                     />
                   ))}
                   {pendingForDay.map(p => {
@@ -910,6 +921,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
                         allTags={allTags}
                         onDragStart={startPanelDrag}
                         onRemove={() => {}}
+                        onSelectTask={onSelectTask}
                       />
                     )
                   })}
@@ -944,7 +956,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
                   ref={el => { colRefs.current[colIdx] = el }}
                   className={cn(
                     "flex-1 relative",
-                    colIdx > 0 && "border-l border-white/20 dark:border-white/[0.04]",
+                    colIdx > 0 && "week-day-divider",
                     isDropTarget && "bg-[--primary]/[0.03]",
                   )}
                   style={{ minHeight: 24 * HOUR_HEIGHT }}
@@ -977,6 +989,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false }: {
                       localOverride={localBlocks[block.id]}
                       onBlockMove={onBlockMove}
                       onBlockDelete={onBlockDelete}
+                      onSelectTask={onSelectTask}
                     />
                   ))}
                 </div>

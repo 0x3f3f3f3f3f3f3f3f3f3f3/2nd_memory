@@ -1,9 +1,10 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { format, isToday, isBefore, startOfDay, addDays, endOfWeek, addWeeks } from "date-fns"
 import { cn, toChina, chinaNow } from "@/lib/utils"
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
-import { AlertTriangle, Clock, Flag, CalendarClock } from "lucide-react"
+import { AlertTriangle, Clock, Flag, CalendarClock, Check, Loader2 } from "lucide-react"
+import { cycleTaskStatus } from "@/lib/actions/tasks"
 import { useT } from "@/contexts/locale-context"
 import type { Task, TaskTag, Tag, SubTask, TimeBlock } from "@prisma/client"
 
@@ -15,6 +16,12 @@ type TaskWithRelations = Task & {
 
 const P_DOT: Record<string, string> = {
   LOW: "bg-stone-400", MEDIUM: "bg-sky-400", HIGH: "bg-orange-400", URGENT: "bg-red-500",
+}
+
+const STATUS_ICON_COLOR: Record<string, string> = {
+  TODO: "border-[--muted-foreground]/40 hover:border-[--primary] hover:bg-[--primary]/10",
+  DOING: "border-amber-400 bg-amber-400/10",
+  DONE: "border-[#C96444] bg-[#C96444] dark:border-[#D4785A] dark:bg-[#D4785A]",
 }
 
 function totalBlockMinutes(blocks: TimeBlock[]): number {
@@ -32,40 +39,86 @@ function formatDuration(mins: number): string {
   return `${h}h${m}m`
 }
 
-function TaskCard({ task, allTags, index }: { task: TaskWithRelations; allTags: Tag[]; index: number }) {
+function TaskCard({
+  task, allTags, index, onSelectTask,
+}: {
+  task: TaskWithRelations
+  allTags: Tag[]
+  index: number
+  onSelectTask?: (task: TaskWithRelations) => void
+}) {
   const t = useT()
-  const [open, setOpen] = useState(false)
+  // Fallback dialog state when no onSelectTask provided (backward compat)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [localStatus, setLocalStatus] = useState(task.status)
+  const [isPending, setIsPending] = useState(false)
+
+  useEffect(() => {
+    setLocalStatus(task.status)
+  }, [task.status])
+
   const blocks = task.timeBlocks ?? []
   const scheduledMin = totalBlockMinutes(blocks)
   const estimateMin = task.estimateMinutes ?? 0
   const hasEstimate = estimateMin > 0
   const progress = hasEstimate ? Math.min(scheduledMin / estimateMin, 1) : 0
-  const isOverdue = task.dueAt && isBefore(toChina(task.dueAt), startOfDay(chinaNow())) && task.status !== "DONE"
+  const isOverdue = task.dueAt && isBefore(toChina(task.dueAt), startOfDay(chinaNow())) && localStatus !== "DONE"
+
+  const handleCycle = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isPending) return
+    const next = localStatus === "TODO" ? "DOING" : localStatus === "DOING" ? "DONE" : "TODO"
+    setLocalStatus(next as any)
+    setIsPending(true)
+    cycleTaskStatus(task.id, localStatus).finally(() => setIsPending(false))
+  }
+
+  const handleClick = () => {
+    if (onSelectTask) {
+      onSelectTask(task)
+    } else {
+      setDialogOpen(true)
+    }
+  }
 
   return (
     <>
       <div
-        onClick={() => setOpen(true)}
+        onClick={handleClick}
         className={cn(
-          "group flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer",
+          "group flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer",
           "bg-white/50 dark:bg-white/[0.035]",
           "border border-white/60 dark:border-white/[0.07]",
           "backdrop-blur-md",
           "shadow-[0_2px_12px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.6)]",
           "dark:shadow-[0_2px_12px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.04)]",
           "hover:bg-white/70 dark:hover:bg-white/[0.06]",
-          "hover:shadow-[0_6px_24px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7)]",
-          "dark:hover:shadow-[0_6px_24px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)]",
           "hover:-translate-y-px",
           "active:scale-[0.99] active:translate-y-0",
           "transition-all duration-200 ease-out",
           "animate-card-enter",
-          task.status === "DONE" && "opacity-50",
+          localStatus === "DONE" && "opacity-50",
         )}
         style={{ animationDelay: `${index * 40}ms` }}
       >
+        {/* Status cycle button */}
+        <button
+          onClick={handleCycle}
+          disabled={isPending}
+          className={cn(
+            "flex-shrink-0 w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center",
+            STATUS_ICON_COLOR[localStatus] ?? STATUS_ICON_COLOR.TODO,
+            "min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 -ml-2 md:ml-0",
+          )}
+          title={t.taskDetail.statusCycleTitle(localStatus)}
+        >
+          {localStatus === "DONE" && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
+          {localStatus === "DOING" && <Loader2 className="w-2.5 h-2.5 text-amber-400 animate-spin" />}
+        </button>
+
+        {/* Priority dot */}
         <span className={cn(
-          "w-2.5 h-2.5 rounded-full flex-shrink-0 transition-transform duration-200 group-hover:scale-125",
+          "w-2 h-2 rounded-full flex-shrink-0 transition-transform duration-200 group-hover:scale-125",
           P_DOT[task.priority],
           isOverdue && "ring-2 ring-red-400/40 ring-offset-1 ring-offset-transparent",
         )} />
@@ -74,7 +127,7 @@ function TaskCard({ task, allTags, index }: { task: TaskWithRelations; allTags: 
           <p className={cn(
             "text-sm font-medium truncate transition-colors duration-150",
             "group-hover:text-[--foreground]",
-            task.status === "DONE" && "line-through text-[--muted-foreground]",
+            localStatus === "DONE" && "line-through text-[--muted-foreground]",
           )}>
             {task.title}
           </p>
@@ -105,7 +158,7 @@ function TaskCard({ task, allTags, index }: { task: TaskWithRelations; allTags: 
           </span>
         )}
 
-        <div className="flex-shrink-0 w-24">
+        <div className="flex-shrink-0 w-20 hidden sm:block">
           {hasEstimate ? (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
@@ -132,18 +185,21 @@ function TaskCard({ task, allTags, index }: { task: TaskWithRelations; allTags: 
         </div>
       </div>
 
-      <TaskDetailDialog
-        task={{ ...task, subTasks: task.subTasks ?? [] }}
-        allTags={allTags}
-        open={open}
-        onOpenChange={setOpen}
-      />
+      {/* Fallback dialog for standalone use */}
+      {!onSelectTask && (
+        <TaskDetailDialog
+          task={{ ...task, subTasks: task.subTasks ?? [] }}
+          allTags={allTags}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
+      )}
     </>
   )
 }
 
 function Section({
-  label, icon, tasks, allTags, accent, startIndex = 0,
+  label, icon, tasks, allTags, accent, startIndex = 0, onSelectTask,
 }: {
   label: string
   icon?: React.ReactNode
@@ -151,6 +207,7 @@ function Section({
   allTags: Tag[]
   accent?: string
   startIndex?: number
+  onSelectTask?: (task: TaskWithRelations) => void
 }) {
   const t = useT()
   if (tasks.length === 0) return null
@@ -162,17 +219,24 @@ function Section({
         <div className="flex-1 h-px bg-[--foreground]/[0.06] ml-1" />
         <span className="text-[10px] text-[--muted-foreground]/60 font-normal">{t.ddl.items(tasks.length)}</span>
       </div>
-
       <div className="space-y-1.5 pl-1">
         {tasks.map((task, i) => (
-          <TaskCard key={task.id} task={task} allTags={allTags} index={startIndex + i} />
+          <TaskCard key={task.id} task={task} allTags={allTags} index={startIndex + i} onSelectTask={onSelectTask} />
         ))}
       </div>
     </div>
   )
 }
 
-export function DdlView({ tasks, allTags }: { tasks: TaskWithRelations[]; allTags: Tag[] }) {
+export function DdlView({
+  tasks,
+  allTags,
+  onSelectTask,
+}: {
+  tasks: TaskWithRelations[]
+  allTags: Tag[]
+  onSelectTask?: (task: TaskWithRelations) => void
+}) {
   const t = useT()
   const now = chinaNow()
   const todayStart = startOfDay(now)
@@ -185,10 +249,11 @@ export function DdlView({ tasks, allTags }: { tasks: TaskWithRelations[]; allTag
   const thisWeek: TaskWithRelations[] = []
   const nextWeek: TaskWithRelations[] = []
   const later: TaskWithRelations[] = []
+  const noDue: TaskWithRelations[] = []
 
   for (const task of tasks) {
-    if (task.status === "DONE" || task.status === "ARCHIVED") continue
-    if (!task.dueAt) continue
+    if (task.status === "ARCHIVED") continue
+    if (!task.dueAt) { noDue.push(task); continue }
     const d = toChina(task.dueAt)
     if (isBefore(d, todayStart)) overdue.push(task)
     else if (isBefore(d, todayEnd)) today.push(task)
@@ -197,7 +262,7 @@ export function DdlView({ tasks, allTags }: { tasks: TaskWithRelations[]; allTag
     else later.push(task)
   }
 
-  const hasAny = overdue.length + today.length + thisWeek.length + nextWeek.length + later.length > 0
+  const hasAny = overdue.length + today.length + thisWeek.length + nextWeek.length + later.length + noDue.length > 0
 
   if (!hasAny) {
     return (
@@ -213,49 +278,16 @@ export function DdlView({ tasks, allTags }: { tasks: TaskWithRelations[]; allTag
   const o2 = o1 + today.length
   const o3 = o2 + thisWeek.length
   const o4 = o3 + nextWeek.length
+  const o5 = o4 + later.length
 
   return (
-    <div className="space-y-5 max-w-2xl">
-      <Section
-        label={t.ddl.overdue}
-        icon={<AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
-        tasks={overdue}
-        allTags={allTags}
-        accent="text-red-600 dark:text-red-400"
-        startIndex={o0}
-      />
-      <Section
-        label={t.ddl.today}
-        icon={<Flag className="w-3.5 h-3.5 text-[--primary]" />}
-        tasks={today}
-        allTags={allTags}
-        accent="text-[--primary]"
-        startIndex={o1}
-      />
-      <Section
-        label={t.ddl.thisWeek}
-        icon={<Clock className="w-3.5 h-3.5 text-[--muted-foreground]" />}
-        tasks={thisWeek}
-        allTags={allTags}
-        accent="text-[--muted-foreground]"
-        startIndex={o2}
-      />
-      <Section
-        label={t.ddl.nextWeek}
-        icon={<CalendarClock className="w-3.5 h-3.5 text-[--muted-foreground]/70" />}
-        tasks={nextWeek}
-        allTags={allTags}
-        accent="text-[--muted-foreground]/70"
-        startIndex={o3}
-      />
-      <Section
-        label={t.ddl.later}
-        icon={<CalendarClock className="w-3.5 h-3.5 text-[--muted-foreground]/50" />}
-        tasks={later}
-        allTags={allTags}
-        accent="text-[--muted-foreground]/50"
-        startIndex={o4}
-      />
+    <div className="space-y-5">
+      <Section label={t.ddl.overdue} icon={<AlertTriangle className="w-3.5 h-3.5 text-red-500" />} tasks={overdue} allTags={allTags} accent="text-red-600 dark:text-red-400" startIndex={o0} onSelectTask={onSelectTask} />
+      <Section label={t.ddl.today} icon={<Flag className="w-3.5 h-3.5 text-[--primary]" />} tasks={today} allTags={allTags} accent="text-[--primary]" startIndex={o1} onSelectTask={onSelectTask} />
+      <Section label={t.ddl.thisWeek} icon={<Clock className="w-3.5 h-3.5 text-[--muted-foreground]" />} tasks={thisWeek} allTags={allTags} accent="text-[--muted-foreground]" startIndex={o2} onSelectTask={onSelectTask} />
+      <Section label={t.ddl.nextWeek} icon={<CalendarClock className="w-3.5 h-3.5 text-[--muted-foreground]/70" />} tasks={nextWeek} allTags={allTags} accent="text-[--muted-foreground]/70" startIndex={o3} onSelectTask={onSelectTask} />
+      <Section label={t.ddl.later} icon={<CalendarClock className="w-3.5 h-3.5 text-[--muted-foreground]/50" />} tasks={later} allTags={allTags} accent="text-[--muted-foreground]/50" startIndex={o4} onSelectTask={onSelectTask} />
+      <Section label={t.ddl.unscheduled} icon={<Clock className="w-3.5 h-3.5 text-[--muted-foreground]/30" />} tasks={noDue} allTags={allTags} accent="text-[--muted-foreground]/40" startIndex={o5} onSelectTask={onSelectTask} />
     </div>
   )
 }

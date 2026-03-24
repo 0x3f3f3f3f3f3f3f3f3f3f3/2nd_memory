@@ -426,7 +426,6 @@ async function executeTool(name: string, args: Record<string, unknown>, tz = "As
           type: n.type,
           importance: n.importance,
           tags: n.noteTags.map(nt => ({ id: nt.tag.id, name: nt.tag.name })),
-          nextReviewAt: n.nextReviewAt,
           createdAt: n.createdAt,
         })))
       }
@@ -444,8 +443,6 @@ async function executeTool(name: string, args: Record<string, unknown>, tz = "As
             contentMd: (args.contentMd as string) || "",
             type: (args.type as any) || "OTHER",
             importance: (args.importance as any) || "MEDIUM",
-            nextReviewAt: new Date(Date.now() + 86400000),
-            reviewIntervalDays: 1,
             noteTags: (args.tagIds as string[])?.length
               ? { create: (args.tagIds as string[]).map(tagId => ({ tagId })) }
               : undefined,
@@ -519,7 +516,7 @@ async function executeTool(name: string, args: Record<string, unknown>, tz = "As
         const todayStart = new Date(chinaMidnight.getTime() - 8 * 3600000)
         const todayEnd = new Date(todayStart.getTime() + 86400000)
 
-        const [dueTasks, doingTasks, todayBlocks, reviewCount] = await Promise.all([
+        const [dueTasks, doingTasks, todayBlocks] = await Promise.all([
           prisma.task.findMany({
             where: { userId: OWNER_USER_ID, dueAt: { gte: todayStart, lt: todayEnd }, status: { not: "DONE" } },
             select: { id: true, title: true, priority: true, dueAt: true, estimateMinutes: true },
@@ -532,9 +529,6 @@ async function executeTool(name: string, args: Record<string, unknown>, tz = "As
             where: { startAt: { gte: todayStart, lt: todayEnd } },
             include: { task: { select: { id: true, title: true } } },
           }),
-          prisma.note.count({
-            where: { userId: OWNER_USER_ID, nextReviewAt: { lte: now } },
-          }),
         ])
         return JSON.stringify({
           date: todayStart.toISOString(),
@@ -544,7 +538,6 @@ async function executeTool(name: string, args: Record<string, unknown>, tz = "As
             id: b.id, taskId: b.task.id, taskTitle: b.task.title,
             startAt: b.startAt, endAt: b.endAt,
           })),
-          pendingReviewCount: reviewCount,
         })
       }
 
@@ -557,7 +550,7 @@ async function executeTool(name: string, args: Record<string, unknown>, tz = "As
 }
 
 function revalidateAll() {
-  for (const p of ["/tasks", "/today", "/timeline", "/ddl", "/inbox", "/notes", "/review", "/tags"]) {
+  for (const p of ["/tasks", "/today", "/timeline", "/ddl", "/inbox", "/notes", "/tags"]) {
     revalidatePath(p)
   }
 }
@@ -628,7 +621,7 @@ function buildTzSection(tz: string, locale: "zh" | "en"): string {
 
 /* ── System prompts ── */
 
-const SYSTEM_PROMPT_ZH = `你是「记忆花园」的 AI 助手。这是一个个人知识管理和任务规划系统。
+const SYSTEM_PROMPT_ZH = `你是「Sage」的 AI 助手。这是一个个人知识管理和任务规划系统。
 
 你可以帮用户：
 - 创建/修改/删除任务、安排时间块（工作时段）
@@ -695,7 +688,7 @@ const SYSTEM_PROMPT_ZH = `你是「记忆花园」的 AI 助手。这是一个�
 TZ_SECTION_ZH
 `
 
-const SYSTEM_PROMPT_EN = `You are the AI assistant for "Memory Garden", a personal knowledge management and task planning system.
+const SYSTEM_PROMPT_EN = `You are the AI assistant for "Sage", a personal knowledge management and task planning system.
 
 You can help users:
 - Create/update/delete tasks and schedule time blocks (work sessions)

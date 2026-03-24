@@ -3,7 +3,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
-  Sun, Inbox, CheckSquare, Calendar, Flag, BookOpen, RotateCcw,
+  Inbox, CheckSquare, Calendar, BookOpen,
   Tag, Search, Settings, Sprout, LogOut, Sparkles
 } from "lucide-react"
 import { useI18n } from "@/contexts/locale-context"
@@ -13,14 +13,11 @@ export function Sidebar() {
   const { t, locale, setLocale } = useI18n()
 
   const navItems = [
-    { href: "/today", label: t.nav.today, icon: Sun },
     { href: "/inbox", label: t.nav.inbox, icon: Inbox },
-    { href: "/tasks", label: t.nav.tasks, icon: CheckSquare },
+    { href: "/ddl", label: t.nav.tasks, icon: CheckSquare },
     { href: "/timeline", label: t.nav.timeline, icon: Calendar },
-    { href: "/ddl", label: t.nav.ddl, icon: Flag },
     { href: "/ai", label: t.nav.ai, icon: Sparkles },
     { href: "/notes", label: t.nav.notes, icon: BookOpen },
-    { href: "/review", label: t.nav.review, icon: RotateCcw },
     { href: "/tags", label: t.nav.tags, icon: Tag },
     { href: "/search", label: t.nav.search, icon: Search },
   ]
@@ -78,12 +75,8 @@ export function Sidebar() {
 
       {/* User info */}
       <div className="px-4 py-3 flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#C96444] to-[#E08A68] flex items-center justify-center text-xs font-bold text-[--primary-foreground] shadow-sm">
-          园
-        </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium truncate">{t.owner}</p>
-          <p className="text-[10px] text-[--muted-foreground] truncate">{t.tagline}</p>
+          <p className="text-xs font-medium truncate">admin</p>
         </div>
       </div>
 

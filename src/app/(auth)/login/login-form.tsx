@@ -20,7 +20,7 @@ export function LoginForm() {
     startTransition(async () => {
       const result = await loginAction(password)
       if (result.success) {
-        router.push("/today")
+        router.push("/inbox")
         router.refresh()
       } else {
         setError(result.error ?? "登录失败")
@@ -63,7 +63,7 @@ export function LoginForm() {
         className="w-full bg-gradient-to-r from-[#C96444] to-[#D97A5C] hover:from-[#B85A3C] hover:to-[#C96A4E] shadow-[0_4px_16px_rgba(201,100,68,0.25)] border-0"
         disabled={isPending || !password}
       >
-        {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "进入花园"}
+        {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "登录"}
       </Button>
     </form>
   )

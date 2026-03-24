@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useCallback, useRef } from "react"
 import {
   format, startOfWeek, addDays, isSameDay,
   eachDayOfInterval, addWeeks, subWeeks, addMonths, subMonths,
@@ -8,6 +8,8 @@ import { DayPicker, type DayProps } from "react-day-picker"
 import { cn, toChina } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
+import { TaskDetailPanel } from "@/components/tasks/task-detail-panel"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react"
 import { useT } from "@/contexts/locale-context"
 import { useIsMobile } from "@/hooks/use-is-mobile"
@@ -58,15 +60,19 @@ function WeekChip({ task, allTags }: { task: TaskWithRelations; allTags: Tag[] }
 }
 
 /* ─── Month view task row ─── */
-function MonthRow({ task, allTags }: { task: TaskWithRelations; allTags: Tag[] }) {
+function MonthRow({ task, allTags, onSelectTask }: {
+  task: TaskWithRelations
+  allTags: Tag[]
+  onSelectTask?: (task: TaskWithRelations) => void
+}) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <div
-        onClick={(e) => { e.stopPropagation(); setOpen(true) }}
+        onClick={(e) => { e.stopPropagation(); onSelectTask ? onSelectTask(task) : setOpen(true) }}
         className={cn(
           "flex items-center gap-1 text-[10px] leading-[1.5rem] px-1 rounded-md cursor-pointer",
-          "hover:bg-white/50 dark:hover:bg-white/5 transition-colors w-full truncate",
+          "glass-row-hover w-full truncate",
           task.status === "DONE" && "opacity-40 line-through"
         )}
         title={task.title}
@@ -74,7 +80,7 @@ function MonthRow({ task, allTags }: { task: TaskWithRelations; allTags: Tag[] }
         <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", PRIORITY_DOT[task.priority])} />
         <span className="truncate text-[--foreground]/80">{task.title}</span>
       </div>
-      <TaskDetailDialog task={{ ...task, subTasks: task.subTasks ?? [] }} allTags={allTags} open={open} onOpenChange={setOpen} />
+      {!onSelectTask && <TaskDetailDialog task={{ ...task, subTasks: task.subTasks ?? [] }} allTags={allTags} open={open} onOpenChange={setOpen} />}
     </>
   )
 }
@@ -85,6 +91,38 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
   const isMobile = useIsMobile()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<"week" | "month">("week")
+  const [viewKey, setViewKey] = useState(0)
+  const [slideDir, setSlideDir] = useState<"right" | "left">("right")
+  const handleSetView = (newView: "week" | "month") => {
+    setSlideDir(newView === "month" ? "right" : "left")
+    setViewKey(k => k + 1)
+    setView(newView)
+  }
+
+  // Right panel state (same two-state system as DdlPageView)
+  const [selectedTask, setSelectedTask] = useState<TaskWithRelations | null>(null)
+  const [panelVisible, setPanelVisible] = useState(false)
+  const panelVisibleRef = useRef(false)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  const onClosePanel = useCallback(() => {
+    setPanelVisible(false)
+    panelVisibleRef.current = false
+    closeTimerRef.current = setTimeout(() => setSelectedTask(null), 450)
+  }, [])
+
+  const onSelectTask = useCallback((task: TaskWithRelations) => {
+    if (panelVisibleRef.current && selectedTask?.id === task.id) { onClosePanel(); return }
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    if (panelVisibleRef.current) { setSelectedTask(task); return }
+    setSelectedTask(task)
+    setPanelVisible(false)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      setPanelVisible(true)
+      panelVisibleRef.current = true
+    }))
+  }, [selectedTask, onClosePanel])
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
   const weekDays = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) })
@@ -175,7 +213,7 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
         ) : (
           <div className="flex-1 space-y-px overflow-hidden">
             {dayTasks.slice(0, MAX).map((task) => (
-              <MonthRow key={task.id} task={task} allTags={allTags} />
+              <MonthRow key={task.id} task={task} allTags={allTags} onSelectTask={onSelectTask} />
             ))}
             {dayTasks.length > MAX && (
               <p className="text-[9px] text-[--muted-foreground]/60 pl-1 leading-4">
@@ -188,7 +226,9 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
     )
   }
 
-  return (
+  const PANEL_W = 320
+
+  const mainContent = (
     <div className="space-y-3 min-w-0">
       {/* Controls */}
       <div className="flex items-center justify-between gap-2">
@@ -208,8 +248,8 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
           {([["week", t.timeline.weekView], ["month", t.timeline.monthView]] as const).map(([v, label]) => (
             <button
               key={v}
-              onClick={() => setView(v)}
-              className={cn("px-3 py-1.5 transition-all duration-150", view === v ? "bg-[--primary] text-[--primary-foreground] shadow-sm" : "hover:bg-white/50 dark:hover:bg-white/[0.08]")}
+              onClick={() => handleSetView(v)}
+              className={cn("px-3 py-1.5", view === v ? "glass-seg-active" : "glass-seg-btn text-[--muted-foreground]")}
             >
               {label}
             </button>
@@ -217,9 +257,10 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
         </div>
       </div>
 
+      <div key={viewKey} className={slideDir === "right" ? "animate-view-right" : "animate-view-left"}>
       {/* ── WEEK VIEW ── */}
       {view === "week" && (
-        <WeekTimeGrid tasks={tasks} allTags={allTags} weekDays={weekDays} isMobile={isMobile} />
+        <WeekTimeGrid tasks={tasks} allTags={allTags} weekDays={weekDays} isMobile={isMobile} onSelectTask={onSelectTask} />
       )}
 
       {/* ── MONTH CALENDAR — liquid glass ── */}
@@ -268,6 +309,76 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
           />
         </div>
       )}
+      </div>
+    </div>
+  )
+
+  // Mobile: full-width + Dialog bottom sheet
+  if (isMobile) {
+    return (
+      <>
+        {mainContent}
+        <Dialog open={!!selectedTask} onOpenChange={open => { if (!open) setSelectedTask(null) }}>
+          <DialogContent className="p-0">
+            <DialogHeader className="sr-only">
+              <DialogTitle>{selectedTask?.title ?? ""}</DialogTitle>
+            </DialogHeader>
+            {selectedTask && (
+              <TaskDetailPanel
+                task={{ ...selectedTask, subTasks: selectedTask.subTasks ?? [] }}
+                allTags={allTags}
+                onClose={() => setSelectedTask(null)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      </>
+    )
+  }
+
+  // Desktop: main content + spring panel on right
+  return (
+    <div
+      className="flex gap-4 items-start min-w-0"
+      onClick={(e) => {
+        if (panelVisibleRef.current && panelRef.current && !panelRef.current.contains(e.target as Node)) {
+          onClosePanel()
+        }
+      }}
+    >
+      <div className="flex-1 min-w-0">{mainContent}</div>
+
+      {/* Panel wrapper — width animates with ease-out-expo */}
+      <div
+        ref={panelRef}
+        className="flex-shrink-0 overflow-hidden"
+        style={{
+          width: panelVisible ? PANEL_W : 0,
+          transition: "width 0.42s cubic-bezier(0.16, 1, 0.3, 1)",
+        }}
+      >
+        {selectedTask && (
+          <div
+            className="sticky top-4"
+            style={{
+              width: PANEL_W,
+              maxHeight: "calc(100vh - 120px)",
+              opacity: panelVisible ? 1 : 0,
+              transform: panelVisible ? "translateX(0)" : "translateX(32px)",
+              transition: [
+                "opacity 0.42s cubic-bezier(0.16, 1, 0.3, 1)",
+                "transform 0.42s cubic-bezier(0.34, 1.15, 0.64, 1)",
+              ].join(", "),
+            }}
+          >
+            <TaskDetailPanel
+              task={{ ...selectedTask, subTasks: selectedTask.subTasks ?? [] }}
+              allTags={allTags}
+              onClose={onClosePanel}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

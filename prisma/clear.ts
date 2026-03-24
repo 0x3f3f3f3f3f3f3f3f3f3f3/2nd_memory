@@ -7,7 +7,6 @@ const prisma = new PrismaClient({ adapter } as any)
 
 async function main() {
   console.log('🗑️  Clearing all data...')
-  await prisma.reviewLog.deleteMany({})
   await prisma.noteTag.deleteMany({})
   await prisma.noteTask.deleteMany({})
   await prisma.noteLink.deleteMany({})

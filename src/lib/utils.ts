@@ -101,28 +101,6 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-export function calcNextReview(rating: string, currentInterval: number | null): Date {
-  const interval = currentInterval ?? 1
-  let nextDays: number
-  switch (rating) {
-    case 'FORGOT':
-      nextDays = 1
-      break
-    case 'VAGUE':
-      nextDays = Math.max(1, Math.floor(interval * 0.5))
-      break
-    case 'REMEMBERED':
-      nextDays = Math.round(interval * 2.5)
-      break
-    case 'EASY':
-      nextDays = Math.round(interval * 4)
-      break
-    default:
-      nextDays = 3
-  }
-  return addDays(new Date(), Math.min(nextDays, 365))
-}
-
 export const PRIORITY_LABELS: Record<string, string> = {
   LOW: '低',
   MEDIUM: '中',

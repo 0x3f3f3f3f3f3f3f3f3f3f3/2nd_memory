@@ -20,7 +20,6 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ id:
     where: { id, userId: OWNER_USER_ID },
     include: {
       noteTags: { include: { tag: true } },
-      reviewLogs: { orderBy: { reviewedAt: "desc" }, take: 5 },
       noteTasks: { include: { task: true } },
     },
   })

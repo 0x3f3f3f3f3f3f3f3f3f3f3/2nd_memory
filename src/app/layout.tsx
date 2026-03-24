@@ -14,15 +14,15 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | 记忆花园",
-    default: "记忆花园 · Memory Garden",
+    template: "%s | Sage",
+    default: "Sage",
   },
-  description: "你的个人第二大脑——任务管理 + 知识库 + 抗遗忘系统",
+  description: "Your personal second brain — tasks, knowledge, and time, unified.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "记忆花园",
+    title: "Sage",
   },
 };
 
