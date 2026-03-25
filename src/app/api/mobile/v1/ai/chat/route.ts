@@ -8,11 +8,16 @@ export async function POST(request: Request) {
     const auth = await requireMobileSession(request)
     const context = await buildAuthenticatedMobileContext(request, auth)
     const body = aiChatSchema.parse(await request.json())
+    // iOS appends an empty assistant placeholder before sending; strip it
+    const messages = body.messages.filter((m) => m.content.trim().length > 0)
+    if (messages.length === 0) {
+      return new Response("No messages", { status: 400 })
+    }
     const stream = await streamAiChat({
       userId: auth.user.id,
       locale: body.locale ?? context.settings.language,
       timeZone: body.timezone ?? context.settings.timezone,
-      messages: body.messages,
+      messages,
     })
 
     return new Response(stream, {

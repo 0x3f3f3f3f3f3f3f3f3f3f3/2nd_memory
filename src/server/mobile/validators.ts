@@ -84,7 +84,7 @@ export const aiChatSchema = z.object({
   messages: z.array(
     z.object({
       role: z.enum(["user", "assistant"]),
-      content: z.string().min(1),
+      content: z.string(),
     }),
   ).min(1),
   locale: z.enum(["zh-Hans", "en"]).optional(),
