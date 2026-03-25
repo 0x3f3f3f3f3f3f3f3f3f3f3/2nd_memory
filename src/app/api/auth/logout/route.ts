@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { getSession } from "@/lib/auth"
 
-const FALLBACK_PUBLIC_ORIGIN = "http://154.83.158.137:3002"
+const FALLBACK_PUBLIC_ORIGIN = "http://localhost:3003"
 
 function isLocalHost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1"

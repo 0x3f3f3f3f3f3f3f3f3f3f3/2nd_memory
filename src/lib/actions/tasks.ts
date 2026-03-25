@@ -1,8 +1,20 @@
 "use server"
 import { revalidatePath } from "next/cache"
-import { prisma } from "@/lib/prisma"
 import { getCurrentUserId } from "@/lib/auth"
 import { z } from "zod"
+import {
+  createSubTask as createSubTaskService,
+  createTask as createTaskService,
+  createTimeBlock as createTimeBlockService,
+  cycleTaskStatus as cycleTaskStatusService,
+  deleteSubTask as deleteSubTaskService,
+  deleteTask as deleteTaskService,
+  deleteTimeBlock as deleteTimeBlockService,
+  updateSubTask as updateSubTaskService,
+  updateTask as updateTaskService,
+  updateTimeBlock as updateTimeBlockService,
+} from "@/server/services/tasks-service"
+import { prisma } from "@/lib/prisma"
 
 const TaskSchema = z.object({
   title: z.string().min(1).max(500),
@@ -19,22 +31,16 @@ const TaskSchema = z.object({
 export async function createTask(data: z.input<typeof TaskSchema>) {
   const userId = await getCurrentUserId()
   const parsed = TaskSchema.parse(data)
-  const task = await prisma.task.create({
-    data: {
-      userId,
-      title: parsed.title,
-      description: parsed.description,
-      status: parsed.status,
-      priority: parsed.priority,
-      dueAt: parsed.dueAt ? new Date(parsed.dueAt) : null,
-      reminderAt: parsed.reminderAt ? new Date(parsed.reminderAt) : null,
-      estimateMinutes: parsed.estimateMinutes ?? null,
-      isPinned: parsed.isPinned,
-      taskTags: parsed.tagIds.length > 0 ? {
-        create: parsed.tagIds.map((tagId) => ({ tagId })),
-      } : undefined,
-    },
-    include: { taskTags: { include: { tag: true } }, subTasks: true },
+  const task = await createTaskService(userId, {
+    title: parsed.title,
+    description: parsed.description,
+    status: parsed.status,
+    priority: parsed.priority,
+    dueAt: parsed.dueAt ?? null,
+    reminderAt: parsed.reminderAt ?? null,
+    estimateMinutes: parsed.estimateMinutes ?? null,
+    isPinned: parsed.isPinned,
+    tagIds: parsed.tagIds,
   })
   revalidatePath("/tasks")
   revalidatePath("/today")
@@ -44,23 +50,7 @@ export async function createTask(data: z.input<typeof TaskSchema>) {
 
 export async function updateTask(id: string, data: Partial<z.infer<typeof TaskSchema>>) {
   const userId = await getCurrentUserId()
-  const { tagIds, dueAt, reminderAt, ...rest } = data
-  const task = await prisma.task.update({
-    where: { id, userId },
-    data: {
-      ...rest,
-      dueAt: dueAt !== undefined ? (dueAt ? new Date(dueAt) : null) : undefined,
-      reminderAt: reminderAt !== undefined ? (reminderAt ? new Date(reminderAt) : null) : undefined,
-      completedAt: rest.status === "DONE" ? new Date() : rest.status ? null : undefined,
-      ...(tagIds !== undefined && {
-        taskTags: {
-          deleteMany: {},
-          create: tagIds.map((tagId) => ({ tagId })),
-        },
-      }),
-    },
-    include: { taskTags: { include: { tag: true } }, subTasks: true },
-  })
+  const task = await updateTaskService(userId, id, data)
   revalidatePath("/tasks")
   revalidatePath("/today")
   revalidatePath("/timeline")
@@ -69,57 +59,42 @@ export async function updateTask(id: string, data: Partial<z.infer<typeof TaskSc
 
 export async function deleteTask(id: string) {
   const userId = await getCurrentUserId()
-  await prisma.task.delete({ where: { id, userId } })
+  await deleteTaskService(userId, id)
   revalidatePath("/tasks")
   revalidatePath("/today")
   revalidatePath("/timeline")
 }
 
 export async function toggleTaskDone(id: string, done: boolean) {
-  const userId = await getCurrentUserId()
-  await prisma.task.update({
-    where: { id, userId },
-    data: {
-      status: done ? "DONE" : "TODO",
-      completedAt: done ? new Date() : null,
-    },
-  })
+  await updateTask(id, { status: done ? "DONE" : "TODO" })
   revalidatePath("/tasks")
   revalidatePath("/today")
 }
 
 export async function cycleTaskStatus(id: string, currentStatus: string) {
   const userId = await getCurrentUserId()
-  const next =
-    currentStatus === "TODO" ? "DOING" :
-    currentStatus === "DOING" ? "DONE" : "TODO"
-  await prisma.task.update({
-    where: { id, userId },
-    data: {
-      status: next,
-      completedAt: next === "DONE" ? new Date() : null,
-    },
-  })
+  const task = await cycleTaskStatusService(userId, id)
   revalidatePath("/tasks")
   revalidatePath("/today")
-  return next
+  return task.status
 }
 
 export async function createSubTask(taskId: string, title: string) {
-  const sub = await prisma.subTask.create({
-    data: { taskId, title, done: false },
-  })
+  const userId = await getCurrentUserId()
+  const sub = await createSubTaskService(userId, taskId, title)
   revalidatePath("/tasks")
   return sub
 }
 
 export async function toggleSubTask(id: string, done: boolean) {
-  await prisma.subTask.update({ where: { id }, data: { done } })
+  const userId = await getCurrentUserId()
+  await updateSubTaskService(userId, id, { done })
   revalidatePath("/tasks")
 }
 
 export async function deleteSubTask(id: string) {
-  await prisma.subTask.delete({ where: { id } })
+  const userId = await getCurrentUserId()
+  await deleteSubTaskService(userId, id)
   revalidatePath("/tasks")
 }
 
@@ -137,8 +112,10 @@ export async function reorderTasks(orderedIds: string[]) {
 /* ── TimeBlock CRUD ── */
 
 export async function createTimeBlock(taskId: string, startAt: Date, endAt: Date) {
-  const block = await prisma.timeBlock.create({
-    data: { taskId, startAt, endAt },
+  const userId = await getCurrentUserId()
+  const block = await createTimeBlockService(userId, taskId, {
+    startAt: startAt.toISOString(),
+    endAt: endAt.toISOString(),
   })
   revalidatePath("/timeline")
   revalidatePath("/today")
@@ -146,9 +123,10 @@ export async function createTimeBlock(taskId: string, startAt: Date, endAt: Date
 }
 
 export async function updateTimeBlock(id: string, startAt: Date, endAt: Date) {
-  const block = await prisma.timeBlock.update({
-    where: { id },
-    data: { startAt, endAt },
+  const userId = await getCurrentUserId()
+  const block = await updateTimeBlockService(userId, id, {
+    startAt: startAt.toISOString(),
+    endAt: endAt.toISOString(),
   })
   revalidatePath("/timeline")
   revalidatePath("/today")
@@ -156,7 +134,8 @@ export async function updateTimeBlock(id: string, startAt: Date, endAt: Date) {
 }
 
 export async function deleteTimeBlock(id: string) {
-  await prisma.timeBlock.delete({ where: { id } })
+  const userId = await getCurrentUserId()
+  await deleteTimeBlockService(userId, id)
   revalidatePath("/timeline")
   revalidatePath("/today")
 }

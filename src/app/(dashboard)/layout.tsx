@@ -17,7 +17,7 @@ export default async function DashboardLayout({
   const localeValue = cookieStore.get(LOCALE_COOKIE)?.value
   const themeValue = cookieStore.get(THEME_COOKIE)?.value
   const locale = isLocale(localeValue) ? localeValue : "zh"
-  const timezone = cookieStore.get(TIMEZONE_COOKIE)?.value ?? "Asia/Shanghai"
+  const timezone = cookieStore.get(TIMEZONE_COOKIE)?.value ?? "UTC"
   const theme = isThemePreference(themeValue) ? themeValue : "system"
 
   return (

@@ -1,9 +1,12 @@
 "use server"
 import { revalidatePath } from "next/cache"
-import { prisma } from "@/lib/prisma"
 import { getCurrentUserId } from "@/lib/auth"
 import { z } from "zod"
-import { slugify } from "@/lib/utils"
+import {
+  createTag as createTagService,
+  deleteTag as deleteTagService,
+  updateTag as updateTagService,
+} from "@/server/services/tags-service"
 
 const TagSchema = z.object({
   name: z.string().min(1).max(100),
@@ -15,20 +18,14 @@ const TagSchema = z.object({
 export async function createTag(data: z.infer<typeof TagSchema>) {
   const userId = await getCurrentUserId()
   const parsed = TagSchema.parse(data)
-  const slug = slugify(parsed.name) || `tag-${Date.now()}`
-  const tag = await prisma.tag.create({
-    data: { userId, ...parsed, slug },
-  })
+  const tag = await createTagService(userId, parsed)
   revalidatePath("/tags")
   return tag
 }
 
 export async function updateTag(id: string, data: Partial<z.infer<typeof TagSchema>>) {
   const userId = await getCurrentUserId()
-  const tag = await prisma.tag.update({
-    where: { id, userId },
-    data,
-  })
+  const tag = await updateTagService(userId, id, data)
   revalidatePath("/tags")
   revalidatePath(`/tags/${tag.slug}`)
   return tag
@@ -36,6 +33,6 @@ export async function updateTag(id: string, data: Partial<z.infer<typeof TagSche
 
 export async function deleteTag(id: string) {
   const userId = await getCurrentUserId()
-  await prisma.tag.delete({ where: { id, userId } })
+  await deleteTagService(userId, id)
   revalidatePath("/tags")
 }

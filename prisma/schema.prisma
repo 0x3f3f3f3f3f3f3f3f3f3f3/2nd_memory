@@ -22,6 +22,7 @@ model User {
   notes      Note[]
   inboxItems InboxItem[]
   settings   Setting[]
+  mobileSessions MobileSession[]
 }
 
 model Tag {
@@ -241,4 +242,21 @@ model Setting {
 
   @@unique([userId, key])
   @@index([userId])
+}
+
+model MobileSession {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  deviceName String?
+  deviceId   String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }

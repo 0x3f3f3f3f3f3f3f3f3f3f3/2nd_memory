@@ -26,7 +26,7 @@ interface LocaleContextValue {
 const LocaleContext = createContext<LocaleContextValue>({
   locale: "zh",
   t: getT("zh"),
-  timezone: "Asia/Shanghai",
+  timezone: "UTC",
   theme: "system",
   setLocale: () => {},
   setTimezone: () => {},

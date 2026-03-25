@@ -10,7 +10,7 @@ export function proxy(request: NextRequest) {
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
-    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/') ||
     pathname === '/manifest.webmanifest' ||
     pathname === '/sw.js' ||
     pathname === '/apple-touch-icon.png' ||

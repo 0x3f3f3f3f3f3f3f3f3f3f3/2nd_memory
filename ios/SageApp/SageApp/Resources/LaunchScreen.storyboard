@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="23504" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="23506"/>
+        <capability name="Named colors" minToolsVersion="9.0"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="EHf-IW-A2E">
+            <objects>
+                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="vKf-B7-sPw">
+                                <rect key="frame" x="48" y="266" width="297" height="320"/>
+                                <subviews>
+                                    <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="BrandMark" translatesAutoresizingMaskIntoConstraints="NO" id="5Jd-3L-sxW">
+                                        <rect key="frame" x="84.5" y="32" width="128" height="128"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="128" id="Bz5-1b-YVN"/>
+                                            <constraint firstAttribute="width" constant="128" id="WjQ-yR-zC1"/>
+                                        </constraints>
+                                    </imageView>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="Sage" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="QqI-wK-rc1">
+                                        <rect key="frame" x="91.5" y="184" width="114" height="46"/>
+                                        <fontDescription key="fontDescription" style="UICTFontTextStyleLargeTitle"/>
+                                        <color key="textColor" red="0.78823529410000003" green="0.39215686270000002" blue="0.26666666669999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                    </label>
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" text="Your second brain, natively on iPhone." textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="KWe-O4-o7q">
+                                        <rect key="frame" x="24" y="246" width="249" height="42"/>
+                                        <fontDescription key="fontDescription" style="UICTFontTextStyleSubhead"/>
+                                        <color key="textColor" systemColor="secondaryLabelColor"/>
+                                    </label>
+                                </subviews>
+                                <constraints>
+                                    <constraint firstItem="QqI-wK-rc1" firstAttribute="centerX" secondItem="vKf-B7-sPw" secondAttribute="centerX" id="2Af-EL-bMu"/>
+                                    <constraint firstItem="KWe-O4-o7q" firstAttribute="centerX" secondItem="vKf-B7-sPw" secondAttribute="centerX" id="7VN-NR-H4R"/>
+                                    <constraint firstItem="5Jd-3L-sxW" firstAttribute="top" secondItem="vKf-B7-sPw" secondAttribute="top" constant="32" id="SQW-Qo-8qM"/>
+                                    <constraint firstItem="QqI-wK-rc1" firstAttribute="top" secondItem="5Jd-3L-sxW" secondAttribute="bottom" constant="24" id="l3g-cH-HdD"/>
+                                    <constraint firstItem="5Jd-3L-sxW" firstAttribute="centerX" secondItem="vKf-B7-sPw" secondAttribute="centerX" id="s3p-Fm-FfJ"/>
+                                    <constraint firstItem="KWe-O4-o7q" firstAttribute="top" secondItem="QqI-wK-rc1" secondAttribute="bottom" constant="16" id="wqk-Uh-BPR"/>
+                                </constraints>
+                            </view>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
+                        <color key="backgroundColor" red="0.97647058819999998" green="0.97254901960000003" blue="0.96470588240000005" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="vKf-B7-sPw" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="48" id="8GM-lF-Bdz"/>
+                            <constraint firstItem="vKf-B7-sPw" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="Aj1-kG-N3u"/>
+                            <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="vKf-B7-sPw" secondAttribute="trailing" constant="48" id="Tjz-xS-D4O"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="BrandMark" width="512" height="512"/>
+        <systemColor name="secondaryLabelColor">
+            <color white="0.23529411759999999" alpha="0.59999999999999998" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
+</document>
