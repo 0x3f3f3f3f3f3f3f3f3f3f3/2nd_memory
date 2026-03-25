@@ -39,6 +39,11 @@ function getCodeTheme(theme: EditorTheme) {
   return theme === "dark" ? "github-dark" : "github"
 }
 
+function isCompactEditor() {
+  if (typeof window === "undefined") return false
+  return window.matchMedia("(max-width: 767px)").matches
+}
+
 export function VditorEditor({ value, onChange, height = 480 }: VditorEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const vditorRef = useRef<any>(null)
@@ -54,38 +59,57 @@ export function VditorEditor({ value, onChange, height = 480 }: VditorEditorProp
     import("vditor").then(({ default: Vditor }) => {
       if (isDisposed || !containerRef.current) return
       const initialTheme = getEditorTheme()
+      const compact = isCompactEditor()
 
       vditorRef.current = new Vditor(containerRef.current, {
-        height,
+        height: compact ? Math.min(height, 320) : height,
         mode: "ir",
         value,
         lang: "zh_CN",
         theme: initialTheme,
         input: onChange,
         cache: { enable: false },
-        toolbar: [
-          "headings",
-          "bold",
-          "italic",
-          "strike",
-          "link",
-          "|",
-          "list",
-          "ordered-list",
-          "check",
-          "quote",
-          "line",
-          "|",
-          "code",
-          "inline-code",
-          "table",
-          "|",
-          "undo",
-          "redo",
-          "|",
-          "preview",
-          "fullscreen",
-        ],
+        toolbar: compact
+          ? [
+              "headings",
+              "bold",
+              "italic",
+              "link",
+              "|",
+              "list",
+              "ordered-list",
+              "check",
+              "|",
+              "quote",
+              "code",
+              "inline-code",
+              "|",
+              "undo",
+              "redo",
+            ]
+          : [
+              "headings",
+              "bold",
+              "italic",
+              "strike",
+              "link",
+              "|",
+              "list",
+              "ordered-list",
+              "check",
+              "quote",
+              "line",
+              "|",
+              "code",
+              "inline-code",
+              "table",
+              "|",
+              "undo",
+              "redo",
+              "|",
+              "preview",
+              "fullscreen",
+            ],
         preview: {
           theme: { current: getContentTheme(initialTheme) },
           hljs: { style: getCodeTheme(initialTheme) },

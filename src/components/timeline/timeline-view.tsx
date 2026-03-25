@@ -361,7 +361,7 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
             className="sticky top-20"
             style={{
               width: PANEL_W,
-              height: "calc(100vh - 6.5rem)",
+              height: "calc(100dvh - 6.5rem)",
               opacity: panelVisible ? 1 : 0,
               transform: panelVisible ? "translateX(0)" : "translateX(32px)",
               transition: [

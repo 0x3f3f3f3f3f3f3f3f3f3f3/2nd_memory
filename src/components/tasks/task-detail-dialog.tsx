@@ -1,6 +1,7 @@
 "use client"
 import { useState, useTransition } from "react"
-import { updateTask, deleteTask } from "@/lib/actions/tasks"
+import { useRouter } from "next/navigation"
+import { createTimeBlock, deleteTimeBlock, updateTask, deleteTask, updateTimeBlock } from "@/lib/actions/tasks"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
@@ -16,11 +17,12 @@ import {
   AlignLeft, Tag as TagIcon, CheckSquare,
 } from "lucide-react"
 import { useT } from "@/contexts/locale-context"
-import type { Task, TaskTag, Tag, SubTask } from "@prisma/client"
+import type { Task, TaskTag, Tag, SubTask, TimeBlock } from "@prisma/client"
 
 type TaskWithRelations = Task & {
   taskTags: (TaskTag & { tag: Tag })[]
   subTasks: SubTask[]
+  timeBlocks?: TimeBlock[]
 }
 
 const STATUS_BADGE_COLOR: Record<string, string> = {
@@ -36,11 +38,43 @@ interface TaskDetailDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+function pad(v: number) {
+  return String(v).padStart(2, "0")
+}
+
+function toDateInput(date: Date | string) {
+  const value = new Date(date)
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`
+}
+
+function toTimeInput(date: Date | string) {
+  const value = new Date(date)
+  return `${pad(value.getHours())}:${pad(value.getMinutes())}`
+}
+
+function getDefaultScheduleFields() {
+  const start = new Date()
+  start.setMinutes(Math.ceil(start.getMinutes() / 30) * 30, 0, 0)
+  const end = new Date(start)
+  end.setHours(end.getHours() + 1)
+  return {
+    date: toDateInput(start),
+    start: toTimeInput(start),
+    end: toTimeInput(end),
+  }
+}
+
+function buildLocalDate(date: string, time: string) {
+  return new Date(`${date}T${time}:00`)
+}
+
 export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDetailDialogProps) {
   const t = useT()
+  const router = useRouter()
   const [mode, setMode] = useState<"view" | "edit">("view")
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [isSchedulePending, startScheduleTransition] = useTransition()
 
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description ?? "")
@@ -48,9 +82,19 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
   const [status, setStatus] = useState<string>(task.status)
   const [dueAt, setDueAt] = useState(() => toLocalDatetimeInput(task.dueAt))
   const [selectedTags, setSelectedTags] = useState<string[]>(task.taskTags.map((tt) => tt.tagId))
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null)
+  const defaults = getDefaultScheduleFields()
+  const [scheduleDate, setScheduleDate] = useState(defaults.date)
+  const [scheduleStart, setScheduleStart] = useState(defaults.start)
+  const [scheduleEnd, setScheduleEnd] = useState(defaults.end)
+  const [scheduleError, setScheduleError] = useState("")
 
   const overdue = task.status !== "DONE" && isOverdue(task.dueAt)
   const dueLabel = getDueLabel(task.dueAt, undefined, { suppressOverdue: task.status === "DONE" })
+  const scheduledBlocks = [...(task.timeBlocks ?? [])]
+    .filter((block) => !block.isAllDay)
+    .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
 
   const PRIORITY_OPTIONS = [
     { value: "LOW", label: t.tasks.priorityLow },
@@ -99,6 +143,55 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
     })
   }
 
+  const openScheduleEditor = (block?: TimeBlock) => {
+    if (block) {
+      setEditingBlockId(block.id)
+      setScheduleDate(toDateInput(block.startAt))
+      setScheduleStart(toTimeInput(block.startAt))
+      setScheduleEnd(toTimeInput(block.endAt))
+    } else {
+      const nextDefaults = getDefaultScheduleFields()
+      setEditingBlockId(null)
+      setScheduleDate(nextDefaults.date)
+      setScheduleStart(nextDefaults.start)
+      setScheduleEnd(nextDefaults.end)
+    }
+    setScheduleError("")
+    setScheduleOpen(true)
+  }
+
+  const handleScheduleSave = () => {
+    const startAt = buildLocalDate(scheduleDate, scheduleStart)
+    const endAt = buildLocalDate(scheduleDate, scheduleEnd)
+    if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+      setScheduleError(t.taskDetail.invalidScheduleValue)
+      return
+    }
+    if (endAt <= startAt) {
+      setScheduleError(t.taskDetail.invalidScheduleRange)
+      return
+    }
+
+    startScheduleTransition(async () => {
+      if (editingBlockId) {
+        await updateTimeBlock(editingBlockId, startAt, endAt)
+      } else {
+        await createTimeBlock(task.id, startAt, endAt)
+      }
+      setScheduleOpen(false)
+      setEditingBlockId(null)
+      setScheduleError("")
+      router.refresh()
+    })
+  }
+
+  const handleScheduleDelete = (id: string) => {
+    startScheduleTransition(async () => {
+      await deleteTimeBlock(id)
+      router.refresh()
+    })
+  }
+
   const handleClose = () => {
     onOpenChange(false)
     setTimeout(() => {
@@ -110,6 +203,9 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
       setStatus(task.status)
       setDueAt(toLocalDatetimeInput(task.dueAt))
       setSelectedTags(task.taskTags.map((tt) => tt.tagId))
+      setScheduleOpen(false)
+      setEditingBlockId(null)
+      setScheduleError("")
     }, 200)
   }
 
@@ -177,6 +273,82 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
               )}
             </div>
 
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-[--muted-foreground] flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />{t.taskDetail.scheduleTitle}
+                </p>
+                <Button size="sm" variant="outline" className="h-9 px-3 text-xs" onClick={() => openScheduleEditor()}>
+                  {t.taskDetail.addScheduleBtn}
+                </Button>
+              </div>
+              {scheduledBlocks.length > 0 ? (
+                <div className="space-y-2">
+                  {scheduledBlocks.map((block) => (
+                    <div
+                      key={block.id}
+                      className="rounded-xl border border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-bg-soft)] px-3 py-2"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">
+                            {new Date(block.startAt).toLocaleDateString(undefined, { month: "numeric", day: "numeric", weekday: "short" })}
+                          </p>
+                          <p className="text-xs text-[--muted-foreground] mt-1">
+                            {new Date(block.startAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {" – "}
+                            {new Date(block.endAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Button size="sm" variant="ghost" className="h-9 px-3 text-xs" onClick={() => openScheduleEditor(block)}>
+                            {t.taskDetail.editScheduleBtn}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-9 px-3 text-xs text-[--destructive]" onClick={() => handleScheduleDelete(block.id)}>
+                            {t.taskDetail.deleteScheduleBtn}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-[--muted-foreground] rounded-xl border border-dashed border-[var(--liquid-glass-border-soft)] px-3 py-3">
+                  {t.taskDetail.noSchedule}
+                </p>
+              )}
+
+              {scheduleOpen && (
+                <div className="rounded-2xl border border-[var(--liquid-glass-border)] bg-[var(--liquid-glass-bg-soft)] p-3 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>{t.taskDetail.dateField}</Label>
+                      <Input type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t.taskDetail.startField}</Label>
+                      <Input type="time" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t.taskDetail.endField}</Label>
+                      <Input type="time" value={scheduleEnd} onChange={(event) => setScheduleEnd(event.target.value)} />
+                    </div>
+                  </div>
+                  {scheduleError && (
+                    <p className="text-xs text-[--destructive]">{scheduleError}</p>
+                  )}
+                  <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                    <Button type="button" variant="ghost" onClick={() => setScheduleOpen(false)}>
+                      {t.taskDetail.cancelScheduleBtn}
+                    </Button>
+                    <Button type="button" disabled={isSchedulePending} onClick={handleScheduleSave}>
+                      {isSchedulePending ? <Loader2 className="w-4 h-4 animate-spin" /> : t.taskDetail.saveScheduleBtn}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {task.description && (
               <div className="space-y-1">
                 <p className="text-xs font-medium text-[--muted-foreground] flex items-center gap-1">
@@ -232,7 +404,7 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
               <Label>{t.taskDetail.notesLabel}</Label>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder={t.taskDetail.notesPlaceholder} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>{t.taskDetail.statusLabel}</Label>
                 <Select value={status} onValueChange={setStatus}>

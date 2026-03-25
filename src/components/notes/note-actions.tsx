@@ -5,8 +5,10 @@ import { deleteNote } from "@/lib/actions/notes"
 import { Button } from "@/components/ui/button"
 import { Pencil, Trash2, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { useT } from "@/contexts/locale-context"
 
 export function NoteActions({ noteId }: { noteId: string }) {
+  const t = useT()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
@@ -21,7 +23,7 @@ export function NoteActions({ noteId }: { noteId: string }) {
   return (
     <>
       <Button variant="outline" size="sm" asChild>
-        <Link href={`/notes/${noteId}/edit`}><Pencil className="w-4 h-4 mr-1" />编辑</Link>
+        <Link href={`/notes/${noteId}/edit`}><Pencil className="w-4 h-4 mr-1" />{t.notes.editNote}</Link>
       </Button>
       {!confirmDelete ? (
         <Button
@@ -30,7 +32,7 @@ export function NoteActions({ noteId }: { noteId: string }) {
           className="text-[--destructive] hover:text-[--destructive] hover:bg-red-50 dark:hover:bg-red-950/30"
           onClick={() => setConfirmDelete(true)}
         >
-          <Trash2 className="w-4 h-4 mr-1" />删除
+          <Trash2 className="w-4 h-4 mr-1" />{t.taskDetail.deleteBtn}
         </Button>
       ) : (
         <div className="flex gap-1">
@@ -40,10 +42,10 @@ export function NoteActions({ noteId }: { noteId: string }) {
             disabled={isPending}
             onClick={handleDelete}
           >
-            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "确认删除"}
+            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t.taskDetail.confirmDeleteBtn}
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
-            取消
+            {t.taskDetail.cancelBtn}
           </Button>
         </div>
       )}

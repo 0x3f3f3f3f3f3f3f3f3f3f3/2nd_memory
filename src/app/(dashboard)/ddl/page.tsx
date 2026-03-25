@@ -21,9 +21,14 @@ export default async function DdlPage() {
 
   return (
     <div className="flex flex-col">
-      <Topbar actions={<TaskFormButton tags={tags} />} />
-      <div className="flex-1 p-4 md:p-6 overflow-x-auto">
+      <Topbar actions={<div className="hidden md:block"><TaskFormButton tags={tags} /></div>} />
+      <div className="flex-1 p-4 md:p-6 overflow-x-hidden">
         <DdlPageView tasks={tasks} allTags={tags} />
+        <TaskFormButton
+          tags={tags}
+          labelMode="always"
+          buttonClassName="md:hidden fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 rounded-full px-5 shadow-lg"
+        />
       </div>
     </div>
   )

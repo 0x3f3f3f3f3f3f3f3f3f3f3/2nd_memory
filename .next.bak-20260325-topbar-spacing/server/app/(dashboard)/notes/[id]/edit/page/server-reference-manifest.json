@@ -1,0 +1,29 @@
+{
+  "node": {
+    "4084b1d57d32303a5550ad660074e8ec8a721fd4f7": {
+      "workers": {
+        "app/(dashboard)/notes/[id]/edit/page": {
+          "moduleId": 53979,
+          "async": true,
+          "exportedName": "createNote",
+          "filename": "src/lib/actions/notes.ts"
+        }
+      },
+      "exportedName": "createNote",
+      "filename": "src/lib/actions/notes.ts"
+    },
+    "602cba256909e9c72485baf819786a2a928718151d": {
+      "workers": {
+        "app/(dashboard)/notes/[id]/edit/page": {
+          "moduleId": 53979,
+          "async": true,
+          "exportedName": "updateNote",
+          "filename": "src/lib/actions/notes.ts"
+        }
+      },
+      "exportedName": "updateNote",
+      "filename": "src/lib/actions/notes.ts"
+    }
+  },
+  "edge": {}
+}

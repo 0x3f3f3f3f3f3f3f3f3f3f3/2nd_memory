@@ -159,7 +159,7 @@ export function AiChat() {
             </div>
 
             <div className={cn(
-              "rounded-2xl px-4 py-3 max-w-[75%] min-w-0",
+              "rounded-2xl px-4 py-3 max-w-[85%] md:max-w-[75%] min-w-0",
               msg.role === "user"
                 ? [
                     "bg-[--primary] text-[--primary-foreground]",
@@ -208,7 +208,7 @@ export function AiChat() {
       </div>
 
       {/* Input area */}
-      <div className="flex-shrink-0 px-4 pt-2 pb-32 md:pb-20 mb-8 md:mb-12 safe-area-pb">
+      <div className="flex-shrink-0 px-4 pt-2 pb-6 md:pb-8 safe-area-pb">
         <div className={cn(
           "ai-input-flat",
           "flex items-center gap-2 max-w-2xl mx-auto",
@@ -236,7 +236,7 @@ export function AiChat() {
             onKeyDown={handleKeyDown}
             placeholder={t.ai.placeholder}
             rows={1}
-            className="flex-1 bg-transparent border-0 outline-none resize-none text-sm py-1 placeholder:text-[--muted-foreground]/50 max-h-[120px]"
+            className="flex-1 bg-transparent border-0 outline-none resize-none text-base md:text-sm py-1 placeholder:text-[--muted-foreground]/50 max-h-[120px]"
           />
           <button
             onClick={() => sendMessage()}

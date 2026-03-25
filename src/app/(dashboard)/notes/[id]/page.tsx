@@ -34,7 +34,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ id:
       <Topbar
         title={note.title}
         actions={
-          <div className="flex gap-2">
+          <div className="hidden md:flex gap-2">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/notes"><ArrowLeft className="w-4 h-4" /></Link>
             </Button>
@@ -42,8 +42,18 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ id:
           </div>
         }
       />
-      <div className="flex-1 p-4 md:p-6 max-w-3xl w-full mx-auto">
+      <div className="md:hidden px-4 pt-3">
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/notes"><ArrowLeft className="w-4 h-4 mr-1" />返回</Link>
+        </Button>
+      </div>
+      <div className="flex-1 p-4 md:p-6 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-6 max-w-3xl w-full mx-auto">
         <NoteDetail note={note} tags={tags} />
+      </div>
+      <div className="md:hidden fixed left-0 right-0 bottom-0 z-30 glass border-t border-[var(--liquid-glass-border)] px-4 py-3 safe-area-pb">
+        <div className="flex items-center gap-2 [&>*]:flex-1">
+          <NoteActions noteId={note.id} />
+        </div>
       </div>
     </div>
   )

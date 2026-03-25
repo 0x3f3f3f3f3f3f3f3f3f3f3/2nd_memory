@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
-import { Moon, Sun, Monitor, Shield, Globe, RotateCcw } from "lucide-react"
+import { Moon, Sun, Monitor, Globe, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/contexts/locale-context"
 import type { ThemePreference } from "@/lib/preferences"
@@ -164,27 +164,15 @@ export function SettingsPanel() {
           </div>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="text-base">{t.settings.security}</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-2 text-sm text-[--muted-foreground]">
-            <Shield className="w-4 h-4" />
-            <span>{t.settings.securityDesc}</span>
-          </div>
-          <Separator />
-          <form action={logoutAction} method="POST">
-            <Button
-              type="submit"
-              variant="outline"
-              className="text-[--destructive] border-[--destructive]/30 hover:bg-[--destructive]/10"
-            >
-              {t.settings.logoutBtn}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
+      <form action={logoutAction} method="POST">
+        <Button
+          type="submit"
+          variant="outline"
+          className="text-[--destructive] border-[--destructive]/30 hover:bg-[--destructive]/10"
+        >
+          {t.settings.logoutBtn}
+        </Button>
+      </form>
     </div>
   )
 }

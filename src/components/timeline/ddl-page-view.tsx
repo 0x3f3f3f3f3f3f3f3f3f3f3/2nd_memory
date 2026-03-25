@@ -345,7 +345,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
   const mainContent = (
     <div className="space-y-3 min-w-0">
       {/* Row 1: Status filter */}
-      <div className="flex rounded-lg bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] backdrop-blur-sm overflow-hidden text-xs shadow-[var(--liquid-glass-shadow-soft)] w-fit">
+      <div className="flex rounded-lg bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] backdrop-blur-sm overflow-hidden text-xs shadow-[var(--liquid-glass-shadow-soft)] w-fit max-w-full overflow-x-auto no-scrollbar">
         {([
           ["ALL", t.tasks.tabAll],
           ["TODO", t.tasks.tabTodo],
@@ -369,7 +369,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
 
       {/* Row 2: DDL date filter — only meaningful in list view */}
       {view === "list" && (
-        <div className="flex rounded-lg bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] backdrop-blur-sm overflow-hidden text-xs shadow-[var(--liquid-glass-shadow-soft)] w-fit">
+        <div className="flex rounded-lg bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] backdrop-blur-sm overflow-hidden text-xs shadow-[var(--liquid-glass-shadow-soft)] w-fit max-w-full overflow-x-auto no-scrollbar">
           {([
             ["ALL", t.ddl.ddlFilterAll],
             ["TODAY", t.ddl.ddlFilterToday],
@@ -394,8 +394,8 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
       )}
 
       {/* Controls bar */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 min-w-0">
           {view !== "list" && (
             <>
               <Button variant="outline" size="icon" className="h-10 w-10 md:h-8 md:w-8" onClick={prev}>
@@ -411,7 +411,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
           )}
           <span className="text-sm font-semibold ml-1">{title}</span>
         </div>
-        <div className="flex rounded-lg bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] backdrop-blur-sm overflow-hidden text-xs shadow-[var(--liquid-glass-shadow-soft)]">
+        <div className="flex rounded-lg bg-[var(--liquid-glass-bg-soft)] border border-[var(--liquid-glass-border)] backdrop-blur-sm overflow-hidden text-xs shadow-[var(--liquid-glass-shadow-soft)] flex-shrink-0">
           {([["list", t.ddl.listView], ["week", t.ddl.weekView], ["month", t.ddl.monthView]] as const).map(([v, label]) => (
             <button
               key={v}
@@ -527,7 +527,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
             className="sticky top-20"
             style={{
               width: PANEL_W,
-              height: "calc(100vh - 6.5rem)",
+              height: "calc(100dvh - 6.5rem)",
               opacity: panelVisible ? 1 : 0,
               transform: panelVisible ? "translateX(0)" : "translateX(32px)",
               transition: [

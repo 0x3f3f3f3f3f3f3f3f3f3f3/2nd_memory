@@ -13,7 +13,15 @@ import { cn } from "@/lib/utils"
 import { useT } from "@/contexts/locale-context"
 import type { Tag } from "@prisma/client"
 
-export function TaskFormButton({ tags }: { tags: Tag[] }) {
+export function TaskFormButton({
+  tags,
+  buttonClassName,
+  labelMode = "adaptive",
+}: {
+  tags: Tag[]
+  buttonClassName?: string
+  labelMode?: "adaptive" | "always" | "icon"
+}) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -53,9 +61,11 @@ export function TaskFormButton({ tags }: { tags: Tag[] }) {
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset() }}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5">
+        <Button size="sm" className={cn("gap-1.5", buttonClassName)}>
           <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">{t.tasks.newTask}</span>
+          {labelMode !== "icon" && (
+            <span className={cn(labelMode === "adaptive" && "hidden sm:inline")}>{t.tasks.newTask}</span>
+          )}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
@@ -71,7 +81,7 @@ export function TaskFormButton({ tags }: { tags: Tag[] }) {
             <Label>{t.tasks.notesLabel}</Label>
             <Textarea placeholder={t.tasks.notesPlaceholder} value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t.tasks.priorityLabel}</Label>
               <Select value={priority} onValueChange={setPriority}>
@@ -108,7 +118,7 @@ export function TaskFormButton({ tags }: { tags: Tag[] }) {
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 bg-[var(--card)]/92 backdrop-blur-sm py-1 -mx-1 px-1 rounded-b-2xl">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{t.tasks.cancel}</Button>
             <Button type="submit" disabled={isPending || !title.trim()}>
               {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : t.tasks.create}

@@ -1,0 +1,89 @@
+{
+  "node": {
+    "7021c56cd30230c790a5ddd26881ea77b8674f39d1": {
+      "workers": {
+        "app/(dashboard)/timeline/page": {
+          "moduleId": 32107,
+          "async": true,
+          "exportedName": "createTimeBlock",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "createTimeBlock",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "408de51e2f8bf3c9829083890dfbb4c745df936571": {
+      "workers": {
+        "app/(dashboard)/timeline/page": {
+          "moduleId": 32107,
+          "async": true,
+          "exportedName": "deleteTimeBlock",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "deleteTimeBlock",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "606f4d6bf777fc22f49794df05176b9eafef6c4ad3": {
+      "workers": {
+        "app/(dashboard)/timeline/page": {
+          "moduleId": 32107,
+          "async": true,
+          "exportedName": "updateTask",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "updateTask",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "404c9cb722c3a29be3e829657bb43ed010fb0a7a65": {
+      "workers": {
+        "app/(dashboard)/timeline/page": {
+          "moduleId": 32107,
+          "async": true,
+          "exportedName": "deleteTask",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "deleteTask",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "7049148c0ab84dcc6c72174ce3b2767cf69f7eb496": {
+      "workers": {
+        "app/(dashboard)/timeline/page": {
+          "moduleId": 32107,
+          "async": true,
+          "exportedName": "updateTimeBlock",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "updateTimeBlock",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "60375399c8552aeae4fbf367d0dc87a0a815aace8f": {
+      "workers": {
+        "app/(dashboard)/timeline/page": {
+          "moduleId": 32107,
+          "async": true,
+          "exportedName": "createAllDayBlock",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "createAllDayBlock",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "40b7bce11e8a557ba6dcb2f51e982d25b96919afd9": {
+      "workers": {
+        "app/(dashboard)/timeline/page": {
+          "moduleId": 32107,
+          "async": true,
+          "exportedName": "deleteTimeBlocksByIds",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "deleteTimeBlocksByIds",
+      "filename": "src/lib/actions/tasks.ts"
+    }
+  },
+  "edge": {}
+}

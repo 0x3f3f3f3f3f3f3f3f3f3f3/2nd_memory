@@ -7,6 +7,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function sanitizeAppPath(path: string | null | undefined, fallback = "/inbox") {
+  if (!path || typeof path !== "string") return fallback
+  if (!path.startsWith("/") || path.startsWith("//")) return fallback
+
+  try {
+    const url = new URL(path, "https://sage.local")
+    return `${url.pathname}${url.search}${url.hash}`
+  } catch {
+    return fallback
+  }
+}
+
 /**
  * Convert a Date to a "fake" local Date whose getHours()/getDate()/etc
  * return values as they would appear in the given IANA timezone.

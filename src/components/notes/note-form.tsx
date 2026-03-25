@@ -56,7 +56,7 @@ export function NoteForm({ note, tags }: NoteFormProps) {
         <Label>一句话总结</Label>
         <Input placeholder="用一句话概括这条知识..." value={summary} onChange={(e) => setSummary(e.target.value)} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>类型</Label>
           <Select value={type} onValueChange={setType}>
@@ -84,7 +84,7 @@ export function NoteForm({ note, tags }: NoteFormProps) {
       <div className="space-y-1.5">
         <Label>正文</Label>
         <div className="note-vditor-shell glass-flat-panel rounded-lg overflow-hidden">
-          <VditorEditor value={contentMd} onChange={setContentMd} />
+          <VditorEditor value={contentMd} onChange={setContentMd} height={420} />
         </div>
       </div>
 
@@ -101,7 +101,7 @@ export function NoteForm({ note, tags }: NoteFormProps) {
         </div>
       )}
 
-      <div className="flex justify-end gap-2">
+      <div className="sticky bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-0 z-10 flex justify-end gap-2 bg-[--background]/94 backdrop-blur-sm py-3">
         <Button type="button" variant="ghost" onClick={() => router.back()}>取消</Button>
         <Button type="submit" disabled={isPending || !title.trim()}>
           {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Save className="w-4 h-4" />保存</>}

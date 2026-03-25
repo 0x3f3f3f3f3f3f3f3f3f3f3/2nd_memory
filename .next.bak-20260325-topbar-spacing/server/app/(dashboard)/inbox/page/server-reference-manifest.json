@@ -1,0 +1,41 @@
+{
+  "node": {
+    "70ea38d9c4bde87f28dc583a663f7297ba27634d9d": {
+      "workers": {
+        "app/(dashboard)/inbox/page": {
+          "moduleId": 76652,
+          "async": true,
+          "exportedName": "processInboxItem",
+          "filename": "src/lib/actions/inbox.ts"
+        }
+      },
+      "exportedName": "processInboxItem",
+      "filename": "src/lib/actions/inbox.ts"
+    },
+    "401ef8e4f2ecbe0eb0bb7c669166694f605a0172a1": {
+      "workers": {
+        "app/(dashboard)/inbox/page": {
+          "moduleId": 76652,
+          "async": true,
+          "exportedName": "deleteInboxItem",
+          "filename": "src/lib/actions/inbox.ts"
+        }
+      },
+      "exportedName": "deleteInboxItem",
+      "filename": "src/lib/actions/inbox.ts"
+    },
+    "405218f9f098a616b72d5f4a5c28f9e63fe7e2160a": {
+      "workers": {
+        "app/(dashboard)/inbox/page": {
+          "moduleId": 76652,
+          "async": true,
+          "exportedName": "addToInbox",
+          "filename": "src/lib/actions/inbox.ts"
+        }
+      },
+      "exportedName": "addToInbox",
+      "filename": "src/lib/actions/inbox.ts"
+    }
+  },
+  "edge": {}
+}

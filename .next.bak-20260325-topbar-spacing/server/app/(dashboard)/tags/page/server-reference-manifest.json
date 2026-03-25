@@ -1,0 +1,17 @@
+{
+  "node": {
+    "4073bb85099bcafb0b3fca9effc5f8029916c0a421": {
+      "workers": {
+        "app/(dashboard)/tags/page": {
+          "moduleId": 45170,
+          "async": true,
+          "exportedName": "createTag",
+          "filename": "src/lib/actions/tags.ts"
+        }
+      },
+      "exportedName": "createTag",
+      "filename": "src/lib/actions/tags.ts"
+    }
+  },
+  "edge": {}
+}

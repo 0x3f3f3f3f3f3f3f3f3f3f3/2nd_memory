@@ -1,14 +1,17 @@
 "use client"
 import { useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { registerAction } from "./actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { sanitizeAppPath } from "@/lib/utils"
 import { Eye, EyeOff, Loader2, Lock, User } from "lucide-react"
+import { useI18n } from "@/contexts/locale-context"
 
 export function RegisterForm() {
+  const { t } = useI18n()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPwd, setConfirmPwd] = useState("")
@@ -16,6 +19,8 @@ export function RegisterForm() {
   const [error, setError] = useState("")
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const from = sanitizeAppPath(searchParams.get("from"))
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,7 +42,7 @@ export function RegisterForm() {
     startTransition(async () => {
       const result = await registerAction(username, password)
       if (result.success) {
-        router.push("/inbox")
+        router.push(from)
         router.refresh()
       } else {
         setError(result.error ?? "注册失败")
@@ -105,6 +110,9 @@ export function RegisterForm() {
         <p className="text-sm text-[--destructive] bg-red-50 dark:bg-red-950/20 px-3 py-2 rounded-lg">
           {error}
         </p>
+      )}
+      {searchParams.get("from") && (
+        <p className="text-xs text-[--muted-foreground] px-1">{t.pwa.loginReturn}</p>
       )}
       <Button
         type="submit"

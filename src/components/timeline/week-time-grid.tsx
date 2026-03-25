@@ -589,6 +589,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
   const chipAreaRefs   = useRef<(HTMLDivElement | null)[]>([])
   const chipAreaRectsRef = useRef<DOMRect[]>([])
   const scrollRef      = useRef<HTMLDivElement>(null)
+  const [scrollbarGutter, setScrollbarGutter] = useState(0)
 
   const [ghost, setGhost] = useState<{
     task: TaskWithRelations; x: number; y: number; dropTime: string | null
@@ -605,6 +606,8 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
   function measureAll() {
     colRectsRef.current     = colRefs.current.map(el => el?.getBoundingClientRect() ?? new DOMRect())
     chipAreaRectsRef.current = chipAreaRefs.current.map(el => el?.getBoundingClientRect() ?? new DOMRect())
+    const scrollEl = scrollRef.current
+    setScrollbarGutter(scrollEl ? Math.max(0, scrollEl.offsetWidth - scrollEl.clientWidth) : 0)
   }
 
   useEffect(() => {
@@ -889,22 +892,28 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
 
       {/* Week grid: flex-col so header + scroll fill full height */}
       <div className={cn(
-        "glass-flat-panel panel-flat-surface flex-1 min-w-0 flex flex-col rounded-3xl overflow-hidden",
+        "glass-flat-panel panel-flat-surface flex-1 min-w-0 flex flex-col rounded-3xl overflow-hidden relative",
       )}>
-
         {/* Fixed header: day names + per-day chip rows */}
         <div className={cn(
           "flex-shrink-0",
           "bg-[var(--liquid-glass-bg)] backdrop-blur-xl",
           "border-b border-[var(--liquid-glass-border-soft)]",
-        )}>
+        )} style={{ paddingRight: scrollbarGutter }}>
           {/* Day name row */}
           <div className="flex">
             <div className="w-12 flex-shrink-0" />
             {weekDays.map((day, i) => {
               const dayIsToday = isToday(day)
               return (
-                <div key={i} className={cn("flex-1 py-2.5 text-center", dayIsToday && "bg-[--primary]/[0.05]")}>
+                <div
+                  key={i}
+                  className={cn(
+                    "flex-1 py-2.5 text-center",
+                    i > 0 && "week-day-divider",
+                    dayIsToday && "bg-[--primary]/[0.05]",
+                  )}
+                >
                   <p className={cn("text-[10px] font-semibold uppercase tracking-wider",
                     dayIsToday ? "text-[--primary]" : "text-[--muted-foreground]/60"
                   )}>

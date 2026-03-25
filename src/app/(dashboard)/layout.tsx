@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/sidebar"
 import { MobileNav } from "@/components/layout/mobile-nav"
+import { PwaInstallPrompt } from "@/components/pwa/pwa-install-prompt"
 import { PageTransition } from "@/components/shared/page-transition"
 import { getCurrentUser } from "@/lib/auth"
 import { LocaleProvider } from "@/contexts/locale-context"
@@ -21,12 +22,16 @@ export default async function DashboardLayout({
 
   return (
     <LocaleProvider initialLocale={locale} initialTimezone={timezone} initialTheme={theme}>
-      <div className="min-h-screen flex flex-col md:flex-row">
+      <div className="min-h-screen min-h-[100dvh] flex flex-col md:flex-row">
         <Sidebar username={username} />
-        <main className="flex-1 md:ml-[var(--sidebar-width)] flex flex-col min-h-screen overflow-x-hidden pb-20 md:pb-0">
+        <main
+          data-dashboard-main="true"
+          className="flex-1 md:ml-[var(--sidebar-width)] flex flex-col min-h-screen min-h-[100dvh] overflow-x-hidden pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0"
+        >
           <PageTransition>{children}</PageTransition>
         </main>
         <MobileNav />
+        <PwaInstallPrompt />
       </div>
     </LocaleProvider>
   )

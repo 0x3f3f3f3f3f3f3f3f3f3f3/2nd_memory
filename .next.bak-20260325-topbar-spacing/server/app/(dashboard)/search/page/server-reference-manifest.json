@@ -1,0 +1,17 @@
+{
+  "node": {
+    "60fb03f411dddfaf73495f30939f4f55e5f612fb97": {
+      "workers": {
+        "app/(dashboard)/search/page": {
+          "moduleId": 30039,
+          "async": true,
+          "exportedName": "cycleTaskStatus",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "cycleTaskStatus",
+      "filename": "src/lib/actions/tasks.ts"
+    }
+  },
+  "edge": {}
+}

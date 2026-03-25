@@ -99,7 +99,7 @@ export function MobileNav() {
       )}
 
       {/* Bottom tab bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass rounded-none border-0">
+      <nav data-mobile-nav="true" className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass rounded-none border-0 safe-area-px">
         <div className="absolute top-0 left-0 right-0 gradient-divider" />
         <div className="flex items-center justify-around h-16 px-2 safe-area-pb">
           {mainItems.map((item) => {

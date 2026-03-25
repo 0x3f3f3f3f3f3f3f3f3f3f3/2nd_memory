@@ -21,7 +21,7 @@ export default async function NewNotePage() {
           </Button>
         }
       />
-      <div className="flex-1 p-4 md:p-6 max-w-3xl w-full mx-auto">
+      <div className="flex-1 p-4 md:p-6 max-w-3xl w-full mx-auto overflow-x-hidden">
         <NoteForm tags={tags} />
       </div>
     </div>

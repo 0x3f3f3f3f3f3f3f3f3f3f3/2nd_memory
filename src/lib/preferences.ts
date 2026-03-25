@@ -5,6 +5,7 @@ export type ThemePreference = "light" | "dark" | "system"
 export const LOCALE_COOKIE = "locale"
 export const TIMEZONE_COOKIE = "tz"
 export const THEME_COOKIE = "theme"
+export const PWA_INSTALL_HINT_COOKIE = "pwa_install_hint_dismissed"
 export const PREFERENCE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 function escapeCookieName(name: string) {

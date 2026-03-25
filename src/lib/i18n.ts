@@ -91,6 +91,18 @@ const zh = {
     updatedAt: (d: string) => `  ·  更新于 ${d}`,
     statusCycleTitle: (s: string) => `点击切换状态（当前：${s}）`,
     subtasksCount: (done: number, total: number) => `${done}/${total} 子任务`,
+    scheduleTitle: "安排时间",
+    addScheduleBtn: "新增时段",
+    editScheduleBtn: "编辑时段",
+    deleteScheduleBtn: "删除时段",
+    dateField: "日期",
+    startField: "开始",
+    endField: "结束",
+    saveScheduleBtn: "保存时段",
+    cancelScheduleBtn: "取消排期",
+    noSchedule: "还没有安排时间",
+    invalidScheduleValue: "请输入有效的日期和时间",
+    invalidScheduleRange: "结束时间必须晚于开始时间",
   },
 
   quickAdd: {
@@ -215,6 +227,15 @@ const zh = {
     error: (msg: string) => `出错了: ${msg}`,
   },
 
+  pwa: {
+    installTitle: "像 App 一样安装",
+    installBody: "在 iPhone Safari 中，先点“分享”，再点“添加到主屏幕”。",
+    stepShare: "分享",
+    stepAdd: "添加到主屏幕",
+    close: "关闭",
+    loginReturn: "登录后会返回你刚才的页面",
+  },
+
   settings: {
     pageTitle: "设置",
     appearance: "外观",
@@ -327,6 +348,18 @@ const en: T = {
     updatedAt: (d: string) => `  ·  Updated ${d}`,
     statusCycleTitle: (s: string) => `Click to cycle status (current: ${s})`,
     subtasksCount: (done: number, total: number) => `${done}/${total} subtasks`,
+    scheduleTitle: "Schedule",
+    addScheduleBtn: "Add time block",
+    editScheduleBtn: "Edit time block",
+    deleteScheduleBtn: "Delete time block",
+    dateField: "Date",
+    startField: "Start",
+    endField: "End",
+    saveScheduleBtn: "Save time block",
+    cancelScheduleBtn: "Cancel scheduling",
+    noSchedule: "No time scheduled yet",
+    invalidScheduleValue: "Enter a valid date and time",
+    invalidScheduleRange: "End time must be after start time",
   },
 
   quickAdd: {
@@ -449,6 +482,15 @@ const en: T = {
     placeholder: "Tell me what you need to do...",
     clearChat: "Clear chat",
     error: (msg: string) => `Error: ${msg}`,
+  },
+
+  pwa: {
+    installTitle: "Install like an app",
+    installBody: "In iPhone Safari, tap Share, then tap Add to Home Screen.",
+    stepShare: "Share",
+    stepAdd: "Add to Home Screen",
+    close: "Close",
+    loginReturn: "You'll be sent back to the page you came from after signing in",
   },
 
   settings: {

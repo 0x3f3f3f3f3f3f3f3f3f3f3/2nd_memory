@@ -93,12 +93,30 @@
 
 * { box-sizing: border-box; }
 
+html {
+  min-height: 100%;
+  background: var(--background);
+  overscroll-behavior-x: none;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
     'Microsoft YaHei', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  min-height: var(--app-height, 100dvh);
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+}
+
+a, button, input, textarea, select {
+  touch-action: manipulation;
+}
+
+img, picture, svg, video, canvas {
+  max-width: 100%;
+  height: auto;
 }
 
 /* ===== Apple Liquid Glass / Glassmorphism ===== */
@@ -302,10 +320,10 @@ body {
 
 /* Week view day column divider */
 .week-day-divider {
-  border-left: 1px solid rgba(28, 25, 23, 0.1);
+  border-left: 1px solid rgba(28, 25, 23, 0.12);
 }
 .dark .week-day-divider {
-  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .dark .timeline-hour-cell,
@@ -329,6 +347,14 @@ body {
 .note-vditor-shell .vditor-toolbar {
   background: var(--liquid-glass-bg-soft);
   border-bottom: 1px solid var(--liquid-glass-border-soft);
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.note-vditor-shell .vditor-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .note-vditor-shell .vditor-content,
@@ -422,6 +448,10 @@ body {
 .prose p { margin: 0.4em 0; }
 .prose ul, .prose ol { padding-left: 1.5em; margin: 0.4em 0; }
 .prose li { margin: 0.2em 0; }
+.prose,
+.prose * {
+  overflow-wrap: anywhere;
+}
 .prose code {
   background: var(--muted);
   padding: 0.125rem 0.375rem;
@@ -430,9 +460,18 @@ body {
 }
 .prose pre { background: var(--muted); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem; overflow-x: auto; }
 .prose pre code { background: none; padding: 0; }
+.prose img { max-width: 100%; height: auto; border-radius: 0.75rem; }
 .prose blockquote { border-left: 3px solid var(--primary); color: var(--muted-foreground); padding-left: 0.75rem; margin: 0.5em 0; }
 .prose hr { border-color: var(--border); margin: 1em 0; }
-.prose table { width: 100%; border-collapse: collapse; margin: 0.5em 0; }
+.prose table {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+}
 .prose th, .prose td { border: 1px solid var(--border); padding: 0.375rem 0.75rem; text-align: left; }
 .prose th { background: var(--muted); font-weight: 600; }
 .prose a { color: var(--primary); text-decoration: underline; }
@@ -549,11 +588,73 @@ body {
 
 /* Safe area bottom padding — for notch/home-indicator devices */
 .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+.safe-area-pt { padding-top: env(safe-area-inset-top); }
+.safe-area-px {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+html.app-standalone [data-topbar="true"] {
+  height: calc(3.5rem + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+
+html.app-standalone [data-mobile-nav="true"] {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+html.app-standalone [data-dashboard-main="true"] {
+  min-height: calc(var(--app-height, 100dvh) - env(safe-area-inset-top));
+}
 
 /* Disable hover lift effects on touch devices */
-@media (max-width: 767px) {
+@media (hover: none) {
   .card-hover:hover { transform: none; box-shadow: none; }
   .glass-card:hover { transform: none; }
+  .nav-item:hover { transform: none; }
+  .glass-row-hover:hover { background: transparent !important; }
+  .btn-animate:hover,
+  .btn-ghost-animate:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    font-size: 16px;
+  }
+
+  /* Prevent iOS Safari auto-zoom on input focus */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  .note-vditor-shell .vditor-toolbar button {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .prose table,
+  .prose pre {
+    font-size: 0.9375rem;
+  }
+
+  /* Prose tables/code blocks: local scroll only */
+  .prose table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .prose pre { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Filter chip rows: horizontal scroll */
+  .mobile-scroll-chips {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0.25rem;
+    padding-bottom: 2px;
+  }
+  .mobile-scroll-chips::-webkit-scrollbar { display: none; }
+  .mobile-scroll-chips > * { flex-shrink: 0; }
 }
 
 /* Bottom sheet slide-up animation */

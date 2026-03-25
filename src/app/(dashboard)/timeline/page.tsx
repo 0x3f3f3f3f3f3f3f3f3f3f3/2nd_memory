@@ -19,7 +19,7 @@ export default async function TimelinePage() {
   return (
     <div className="flex flex-col">
       <Topbar />
-      <div className="flex-1 p-4 md:p-6 overflow-x-auto">
+      <div className="flex-1 p-4 md:p-6 overflow-x-hidden">
         <TimelineView tasks={tasks} allTags={tags} />
       </div>
     </div>

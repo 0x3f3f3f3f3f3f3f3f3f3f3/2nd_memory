@@ -1,0 +1,89 @@
+{
+  "node": {
+    "7021c56cd30230c790a5ddd26881ea77b8674f39d1": {
+      "workers": {
+        "app/(dashboard)/ddl/page": {
+          "moduleId": 93715,
+          "async": true,
+          "exportedName": "createTimeBlock",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "createTimeBlock",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "408de51e2f8bf3c9829083890dfbb4c745df936571": {
+      "workers": {
+        "app/(dashboard)/ddl/page": {
+          "moduleId": 93715,
+          "async": true,
+          "exportedName": "deleteTimeBlock",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "deleteTimeBlock",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "606f4d6bf777fc22f49794df05176b9eafef6c4ad3": {
+      "workers": {
+        "app/(dashboard)/ddl/page": {
+          "moduleId": 93715,
+          "async": true,
+          "exportedName": "updateTask",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "updateTask",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "404c9cb722c3a29be3e829657bb43ed010fb0a7a65": {
+      "workers": {
+        "app/(dashboard)/ddl/page": {
+          "moduleId": 93715,
+          "async": true,
+          "exportedName": "deleteTask",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "deleteTask",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "7049148c0ab84dcc6c72174ce3b2767cf69f7eb496": {
+      "workers": {
+        "app/(dashboard)/ddl/page": {
+          "moduleId": 93715,
+          "async": true,
+          "exportedName": "updateTimeBlock",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "updateTimeBlock",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "60fb03f411dddfaf73495f30939f4f55e5f612fb97": {
+      "workers": {
+        "app/(dashboard)/ddl/page": {
+          "moduleId": 93715,
+          "async": true,
+          "exportedName": "cycleTaskStatus",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "cycleTaskStatus",
+      "filename": "src/lib/actions/tasks.ts"
+    },
+    "40c223bc3f2616e54f4804602c6538a0355cc52113": {
+      "workers": {
+        "app/(dashboard)/ddl/page": {
+          "moduleId": 93715,
+          "async": true,
+          "exportedName": "createTask",
+          "filename": "src/lib/actions/tasks.ts"
+        }
+      },
+      "exportedName": "createTask",
+      "filename": "src/lib/actions/tasks.ts"
+    }
+  },
+  "edge": {}
+}

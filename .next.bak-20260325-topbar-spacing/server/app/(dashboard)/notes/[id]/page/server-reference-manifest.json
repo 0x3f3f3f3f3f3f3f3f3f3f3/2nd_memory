@@ -1,0 +1,17 @@
+{
+  "node": {
+    "40df441ecbbba13a64e140940b4859ace305622d3f": {
+      "workers": {
+        "app/(dashboard)/notes/[id]/page": {
+          "moduleId": 8303,
+          "async": true,
+          "exportedName": "deleteNote",
+          "filename": "src/lib/actions/notes.ts"
+        }
+      },
+      "exportedName": "deleteNote",
+      "filename": "src/lib/actions/notes.ts"
+    }
+  },
+  "edge": {}
+}
