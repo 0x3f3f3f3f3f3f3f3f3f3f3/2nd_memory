@@ -35,7 +35,7 @@ export default async function NotesPage({
   ])
 
   return (
-    <div className="flex flex-col">
+    <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden">
       <Topbar
         actions={
           <Button size="sm" asChild className="hidden md:inline-flex">
@@ -46,7 +46,7 @@ export default async function NotesPage({
           </Button>
         }
       />
-      <div className="flex-1 p-4 md:p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
         <NoteList notes={notes} tags={tags} />
         <Button
           asChild

@@ -237,7 +237,7 @@ export function TaskDetailPanel({ task, allTags, initialMode = "view", initialEd
   return (
     <div className={cn(
       "glass-flat-panel panel-flat-surface flex flex-col h-full max-h-full min-h-0 rounded-3xl overflow-hidden",
-    )}>
+    )} style={{ contain: "paint", transform: "translateZ(0)", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--liquid-glass-border-soft)] flex-shrink-0">
         <span className="text-sm font-semibold text-[--foreground]/80">{mode === "edit" ? t.taskDetail.editTitle : t.taskDetail.viewTitle}</span>
@@ -407,22 +407,12 @@ export function TaskDetailPanel({ task, allTags, initialMode = "view", initialEd
           </div>
           {scheduledBlocks.length > 0 ? (
             <div className="space-y-2">
-              {scheduledBlocks.map((block, index) => (
+              {scheduledBlocks.map((block) => (
                 <div
                   key={block.id}
-                  className={cn(
-                    "overflow-hidden rounded-2xl border shadow-[var(--liquid-glass-shadow-soft)]",
-                    index % 2 === 0
-                      ? "border-[var(--liquid-glass-border)] bg-[var(--liquid-glass-bg)]"
-                      : "border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-bg-soft)]"
-                  )}
+                  className="overflow-hidden rounded-2xl border border-[var(--liquid-glass-border)] bg-[var(--liquid-glass-bg)] shadow-[var(--liquid-glass-shadow-soft)]"
                 >
-                  <div
-                    className={cn(
-                      "flex items-start gap-3 px-3 py-3",
-                      index % 2 === 0 ? "bg-white/45 dark:bg-white/5" : "bg-[#C96444]/[0.04] dark:bg-white/5"
-                    )}
-                  >
+                  <div className="flex items-start gap-3 px-3 py-3 bg-white/35 dark:bg-white/5">
                     <div className="w-16 flex-shrink-0 rounded-xl border border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-bg)] px-2 py-2 text-center shadow-[var(--liquid-glass-shadow-soft)]">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-[--muted-foreground]">
                         {format(new Date(block.startAt), "EEE")}

@@ -16,9 +16,9 @@ export default async function InboxPage() {
   })
 
   return (
-    <div className="flex flex-col">
+    <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden">
       <Topbar subtitle={t.inbox.subtitle(items.length)} actions={<QuickAdd />} />
-      <div className="flex-1 p-4 md:p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6">
         <InboxList items={items} />
       </div>
     </div>

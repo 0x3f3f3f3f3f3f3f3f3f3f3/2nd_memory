@@ -48,6 +48,11 @@ export function TaskSidePanel({
             width: PANEL_W,
             overflow: "hidden",
             pointerEvents: visible ? "auto" : "none",
+            contain: "layout paint style",
+            isolation: "isolate",
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "translateZ(0)",
           }}
         >
           <div
@@ -57,6 +62,9 @@ export function TaskSidePanel({
               transform: visible ? "translateX(0)" : "translateX(100%)",
               transition: panelTransition,
               willChange: "transform",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transformStyle: "preserve-3d",
             }}
           >
             {children}
