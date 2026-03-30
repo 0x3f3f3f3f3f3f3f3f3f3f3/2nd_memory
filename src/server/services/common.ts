@@ -47,6 +47,18 @@ export async function validateUserTaskIds(userId: string, taskIds: string[]) {
   return taskIds
 }
 
+export async function validateUserNoteIds(userId: string, noteIds: string[]) {
+  if (noteIds.length === 0) return []
+  const notes = await prisma.note.findMany({
+    where: { userId, id: { in: noteIds } },
+    select: { id: true },
+  })
+  if (notes.length !== noteIds.length) {
+    throw badRequest("One or more notes do not belong to the current user", "invalid_note_ids")
+  }
+  return noteIds
+}
+
 export async function uniqueNoteSlug(userId: string, title: string) {
   const baseSlug = slugify(title) || "note"
   let slug = baseSlug

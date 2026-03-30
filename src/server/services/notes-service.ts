@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
+import type { Prisma } from "@prisma/client"
 import { notFound } from "@/server/errors"
-import { noteInclude, uniqueNoteSlug, validateUserTagIds, validateUserTaskIds } from "@/server/services/common"
+import { noteInclude, uniqueNoteSlug, validateUserTagIds, validateUserTaskIds, validateUserNoteIds } from "@/server/services/common"
 
 export async function listNotes(
   userId: string,
@@ -61,6 +62,7 @@ export async function createNote(
     isPinned: boolean
     tagIds?: string[]
     relatedTaskIds?: string[]
+    metadata?: Prisma.InputJsonValue
   },
 ) {
   const [tagIds, relatedTaskIds, slug] = await Promise.all([
@@ -79,6 +81,7 @@ export async function createNote(
       type: input.type,
       importance: input.importance,
       isPinned: input.isPinned,
+      metadata: input.metadata ?? {},
       noteTags: tagIds.length
         ? {
             create: tagIds.map((tagId) => ({ tagId })),
@@ -106,6 +109,7 @@ export async function updateNote(
     isPinned?: boolean
     tagIds?: string[]
     relatedTaskIds?: string[]
+    metadata?: Prisma.InputJsonValue
   },
 ) {
   const existing = await getNote(userId, id)
@@ -124,6 +128,7 @@ export async function updateNote(
       ...(input.type !== undefined ? { type: input.type } : {}),
       ...(input.importance !== undefined ? { importance: input.importance } : {}),
       ...(input.isPinned !== undefined ? { isPinned: input.isPinned } : {}),
+      ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
       ...(tagIds !== undefined
         ? {
             noteTags: {
@@ -148,4 +153,35 @@ export async function updateNote(
 export async function deleteNote(userId: string, id: string) {
   await getNote(userId, id)
   await prisma.note.delete({ where: { id } })
+}
+
+export async function upsertNoteLink(
+  userId: string,
+  input: {
+    fromNoteId: string
+    toNoteId: string
+    relationType: "RELATED" | "CAUSED_BY" | "SUPPORTS" | "CONTRADICTS" | "REMINDS"
+  },
+) {
+  const [fromNoteId, toNoteId] = await Promise.all([
+    validateUserNoteIds(userId, [input.fromNoteId]),
+    validateUserNoteIds(userId, [input.toNoteId]),
+  ])
+
+  return prisma.noteLink.upsert({
+    where: {
+      fromNoteId_toNoteId: {
+        fromNoteId: fromNoteId[0],
+        toNoteId: toNoteId[0],
+      },
+    },
+    create: {
+      fromNoteId: fromNoteId[0],
+      toNoteId: toNoteId[0],
+      relationType: input.relationType,
+    },
+    update: {
+      relationType: input.relationType,
+    },
+  })
 }
