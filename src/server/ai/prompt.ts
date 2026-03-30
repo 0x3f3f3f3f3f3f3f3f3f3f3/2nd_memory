@@ -3,17 +3,21 @@ import type { AiPlannerContext } from "@/server/ai/contracts"
 export function buildPlannerPrompt(context: AiPlannerContext) {
   const examples = context.locale === "en"
     ? [
-        `User: I need to take medicine tomorrow around noon.\nPlan: upsert_task + reminderAt only. No dueAt. No inbox.`,
+        `User: I need to take medicine tomorrow around noon.\nPlan: upsert_task + reminderAt only. No dueAt. No inbox. Title must be "take medicine" or "medicine", not a sentence fragment.`,
         `User: Report due by Friday.\nPlan: upsert_task + dueAt Friday 23:59:59 local.`,
         `User: Write report tomorrow at 3pm for 30 minutes.\nPlan: schedule_task. Reuse existing task if possible.`,
+        `User: Next week every day at 9pm do TOEFL for 30 minutes.\nPlan: create_recurring_schedule. Title must be "TOEFL", not "I need to do at 9pm".`,
         `User: Next week every day at noon take medicine.\nPlan: bulk_create_discrete_tasks with reminderAt occurrences.`,
+        `User: Clear all planning.\nPlan: clear_future_time_blocks(scope=all_tasks). Preserve tasks and notes.`,
         `User: I had an idea about an LLM world model.\nPlan: upsert_note with enriched markdown. Not inbox.`,
       ].join("\n\n")
     : [
-        `用户：我明天中午要吃药，大概十二点。\n计划：upsert_task + reminderAt；不要 dueAt；不要 inbox。`,
+        `用户：我明天中午要吃药，大概十二点。\n计划：upsert_task + reminderAt；不要 dueAt；不要 inbox；标题必须是“吃药”，不能是句子残片。`,
         `用户：周五前交报告。\n计划：upsert_task + dueAt=周五 23:59:59 本地时区。`,
         `用户：明天下午三点写报告半小时。\n计划：schedule_task；优先复用已有 task。`,
+        `用户：接下来一周我每天晚上9点要做30分钟托福。\n计划：create_recurring_schedule；标题必须是“托福”，不能是“我每天晚上9点要做”。`,
         `用户：接下来一周每天中午吃药。\n计划：bulk_create_discrete_tasks；展开 reminderAt occurrences。`,
+        `用户：清除所有规划。\n计划：clear_future_time_blocks(scope=all_tasks)；只清未来时段；不删 task；不删 note。`,
         `用户：我今天想到一个 LLM 世界模型。\n计划：upsert_note；补充结构化 markdown；不要 inbox。`,
       ].join("\n\n")
 
@@ -26,8 +30,14 @@ export function buildPlannerPrompt(context: AiPlannerContext) {
     "- TimeBlock = scheduled work session",
     "- Note = idea / insight / reflection / knowledge",
     "- Inbox only when user explicitly wants quick capture or later triage",
+    "title rules:",
+    "- task titles must be core activities only",
+    "- time, frequency, duration, pronouns, and modal shells are never titles",
+    "- never output sentence fragments such as 我每天晚上9点要做",
+    "- if title confidence is low, do not output a low-confidence write action",
     "time semantics:",
     "- Mentioning a time is not automatically a deadline",
+    "- medication / reminder / obligation defaults to task + reminderAt",
     "- reminderAt, dueAt, and timeBlock must stay separate",
     "- date-only dueAt -> 23:59:59 local",
     "- date-only reminderAt -> 09:00 local",
@@ -37,6 +47,10 @@ export function buildPlannerPrompt(context: AiPlannerContext) {
     "- hypotheses must be marked as assumptions / to verify",
     "inbox policy:",
     "- never use inbox as uncertainty fallback",
+    "- only explicit quick capture may go to inbox",
+    "destructive schedule policy:",
+    "- clear planning means clear future time blocks only",
+    "- do not delete tasks or notes unless explicitly requested",
     "ambiguity policy:",
     "- if intent is clear enough, execute directly",
     "- only clarify destructive / high-risk ambiguities",

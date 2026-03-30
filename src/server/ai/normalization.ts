@@ -79,3 +79,7 @@ export function splitClauses(value: string) {
     .map((part) => normalizeWhitespace(part))
     .filter(Boolean)
 }
+
+export function isLikelyQuestionLike(value: string) {
+  return /(什么是|为什么|如何|解释|介绍|聊聊|怎么理解|what is|why|how|explain|tell me about)/iu.test(value)
+}

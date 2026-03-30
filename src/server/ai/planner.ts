@@ -1,6 +1,7 @@
 import OpenAI from "openai"
 import { zodResponseFormat } from "openai/helpers/zod"
 import {
+  AiRouteKind,
   aiIntentPlanSchema,
   AiIntentPlan,
   AiPlannerContext,
@@ -20,6 +21,7 @@ import {
   parseDurationMinutes,
 } from "@/server/ai/time-semantics"
 import { deriveNoteTitle, deriveSearchQueries, deriveTaskTitle, normalizeWhitespace, splitClauses, stripLeadingPhrases } from "@/server/ai/normalization"
+import { extractTitle } from "@/server/ai/title-extractor"
 
 type PlannerMessage = {
   role: "user" | "assistant"
@@ -77,17 +79,230 @@ function buildRecurringTaskTitle(base: string, index: number, occurrences: numbe
   return `${base} #${index + 1}`
 }
 
-function buildHeuristicPlan(input: {
+function buildReminderPlan(input: {
   text: string
   locale: "zh-Hans" | "en"
   timeZone: string
   now?: Date
+}): AiIntentPlan | null {
+  const title = extractTitle(input.text, "task")
+  if (title.confidence < 0.95) return null
+  const reminderAt = parseTimePoint(input.text, input.timeZone, input.now ?? new Date(), {
+    defaultHour: COARSE_TIME_MAP.morning.hour,
+    defaultMinute: COARSE_TIME_MAP.morning.minute,
+  })
+  return {
+    mode: "execute",
+    confidence: 0.98,
+    intentSummary: "Discrete reminder task",
+    assumptions: [],
+    actions: [
+      {
+        type: "upsert_task",
+        title: title.title,
+        description: normalizeWhitespace(input.text),
+        status: "TODO",
+        priority: "MEDIUM",
+        reminderAt: reminderAt.at.toISOString(),
+        matchStrategy: "normalized_title",
+        targetQuery: title.title,
+        sourceText: input.text,
+      },
+    ],
+    userFacingSummary: input.locale === "en" ? "I’ll create or update the reminder task." : "我会创建或更新提醒任务。",
+  }
+}
+
+function buildDeadlinePlan(input: {
+  text: string
+  locale: "zh-Hans" | "en"
+  timeZone: string
+  now?: Date
+}) {
+  const title = extractTitle(input.text, "task")
+  if (title.confidence < 0.95) return null
+  const dueAt = parseTimePoint(input.text, input.timeZone, input.now ?? new Date(), { dateOnlyAsEndOfDay: true })
+  return {
+    mode: "execute",
+    confidence: 0.97,
+    intentSummary: "Deadline task",
+    assumptions: ["Date-only deadline mapped to 23:59:59 local time."],
+    actions: [
+      {
+        type: "upsert_task",
+        title: title.title,
+        description: normalizeWhitespace(input.text),
+        status: "TODO",
+        priority: "MEDIUM",
+        dueAt: dueAt.at.toISOString(),
+        matchStrategy: "normalized_title",
+        targetQuery: title.title,
+        sourceText: input.text,
+      },
+    ],
+    userFacingSummary: input.locale === "en" ? "I’ll create or update the task with a deadline." : "我会创建或更新这个任务，并设置截止时间。",
+  } satisfies AiIntentPlan
+}
+
+function buildSchedulePlan(input: {
+  text: string
+  locale: "zh-Hans" | "en"
+  timeZone: string
+  now?: Date
+}) {
+  const title = extractTitle(input.text, "schedule_subject")
+  if (title.confidence < 0.95) return null
+  const start = parseTimePoint(input.text, input.timeZone, input.now ?? new Date(), {
+    defaultHour: COARSE_TIME_MAP.afternoon.hour,
+    defaultMinute: COARSE_TIME_MAP.afternoon.minute,
+  })
+  const duration = parseDurationMinutes(input.text, 30)
+  const endAt = new Date(start.at.getTime() + duration * 60000)
+  return {
+    mode: "execute",
+    confidence: 0.97,
+    intentSummary: "Scheduled work session",
+    assumptions: duration === 30 ? ["No explicit duration found; defaulted to 30 minutes."] : [],
+    actions: [
+      {
+        type: "schedule_task",
+        taskTitle: title.title,
+        taskQuery: title.title,
+        createTaskIfMissing: true,
+        taskDescriptionIfCreate: normalizeWhitespace(input.text),
+        startAt: start.at.toISOString(),
+        endAt: endAt.toISOString(),
+        isAllDay: false,
+      },
+    ],
+    userFacingSummary: input.locale === "en" ? "I’ll schedule that task." : "我会把这件事安排到对应时段。",
+  } satisfies AiIntentPlan
+}
+
+function buildRecurringReminderPlan(input: {
+  text: string
+  locale: "zh-Hans" | "en"
+  timeZone: string
+  now?: Date
+}) {
+  const title = extractTitle(input.text, "task")
+  if (title.confidence < 0.95) return null
+  const occurrences = buildOccurrencesFromDailyReminder(input.text, input.timeZone, input.now ?? new Date(), COARSE_TIME_MAP.noon.hour, COARSE_TIME_MAP.noon.minute)
+  return {
+    mode: "execute",
+    confidence: 0.98,
+    intentSummary: "Recurring discrete reminder task",
+    assumptions: [`Expanded to at most ${RECURRING_EXPANSION_LIMIT} occurrences.`],
+    actions: [
+      {
+        type: "bulk_create_discrete_tasks",
+        title: title.title,
+        description: normalizeWhitespace(input.text),
+        occurrences: occurrences.map((occurrence, index) => ({
+          title: occurrences.length > 1 ? `${title.title} #${index + 1}` : title.title,
+          reminderAt: occurrence.reminderAt ?? null,
+          dueAt: null,
+        })),
+      },
+    ],
+    userFacingSummary: input.locale === "en" ? "I’ll create the recurring reminder tasks." : "我会创建重复提醒任务。",
+  } satisfies AiIntentPlan
+}
+
+function buildRecurringSchedulePlan(input: {
+  text: string
+  locale: "zh-Hans" | "en"
+  timeZone: string
+  now?: Date
+}) {
+  const clauses = splitClauses(input.text)
+  const titleSource =
+    clauses.find((clause) => /(写|做|背|练|看|读|学|跑|安排|schedule|practice|study|work on)/iu.test(clause))
+    ?? input.text
+  const title = extractTitle(titleSource, "schedule_subject")
+  if (title.confidence < 0.95) return null
+  const occurrences = buildOccurrencesFromRecurringSchedule(input.text, input.timeZone, input.now ?? new Date(), parseDurationMinutes(input.text, 30))
+  const actions: AiIntentPlan["actions"] = []
+  if (isDeadlineIntent(input.text)) {
+    const dueAt = parseTimePoint(input.text, input.timeZone, input.now ?? new Date(), { dateOnlyAsEndOfDay: true })
+    actions.push({
+      type: "upsert_task",
+      title: title.title,
+      description: normalizeWhitespace(input.text),
+      status: "TODO",
+      priority: "MEDIUM",
+      dueAt: dueAt.at.toISOString(),
+      matchStrategy: "normalized_title",
+      targetQuery: title.title,
+      sourceText: input.text,
+    })
+  }
+  actions.push({
+    type: "create_recurring_schedule",
+    taskTitle: title.title,
+    taskQuery: title.title,
+    createTaskIfMissing: true,
+    taskDescriptionIfCreate: normalizeWhitespace(input.text),
+    occurrences,
+  })
+  return {
+    mode: "execute",
+    confidence: 0.98,
+    intentSummary: "Recurring scheduled work sessions",
+    assumptions: [`Expanded to at most ${RECURRING_EXPANSION_LIMIT} schedule occurrences.`],
+    actions,
+    userFacingSummary: input.locale === "en" ? "I’ll set up recurring scheduled sessions." : "我会建立重复的计划时段。",
+  } satisfies AiIntentPlan
+}
+
+export function buildDeterministicPlan(input: {
+  text: string
+  locale: "zh-Hans" | "en"
+  timeZone: string
+  now?: Date
+  routeKind?: AiRouteKind
 }): AiIntentPlan | null {
   const text = normalizeWhitespace(input.text)
   const now = input.now ?? new Date()
   const clauses = splitClauses(text)
 
   if (!text) return null
+
+  if (input.routeKind === "DESTRUCTIVE_SCHEDULE") {
+    if (/(清除所有规划|清除所有安排|清除所有日程|清空未来安排|clear all schedules|clear all planning)/iu.test(text)) {
+      return {
+        mode: "execute",
+        confidence: 0.99,
+        intentSummary: "Clear future scheduled blocks without deleting tasks or notes",
+        assumptions: ["Default destructive schedule semantics only remove future time blocks."],
+        actions: [
+          {
+            type: "clear_future_time_blocks",
+            scope: "all_tasks",
+            preserveTasks: true,
+          },
+        ],
+        userFacingSummary: input.locale === "en" ? "I’ll clear future scheduled blocks and keep tasks and notes intact." : "我会清除未来的安排，但保留任务和笔记本身。",
+      }
+    }
+
+    if (/(删除所有任务|清空待办|delete all tasks|clear all tasks)/iu.test(text)) {
+      return {
+        mode: "execute",
+        confidence: 0.96,
+        intentSummary: "Delete tasks in scope",
+        assumptions: [],
+        actions: [
+          {
+            type: "delete_tasks_in_scope",
+            scope: "all",
+            archiveInsteadOfDelete: false,
+          },
+        ],
+        userFacingSummary: input.locale === "en" ? "I’ll delete the tasks you explicitly asked to remove." : "我会删除你明确要求删除的任务。",
+      }
+    }
+  }
 
   if (isExplicitInboxIntent(text)) {
     return {
@@ -134,67 +349,17 @@ function buildHeuristicPlan(input: {
 
   const recurringWindow = parseRecurringWindow(text)
   if (recurringWindow && /每天|every day/iu.test(text)) {
-    const taskTitle = deriveTaskTitle(text)
     if (isReminderIntent(text) || /吃药|缴费|打电话|医院/u.test(text)) {
-      const occurrences = buildOccurrencesFromDailyReminder(text, input.timeZone, now, COARSE_TIME_MAP.noon.hour, COARSE_TIME_MAP.noon.minute)
-      return {
-        mode: "execute",
-        confidence: 0.98,
-        intentSummary: "Recurring discrete reminder task",
-        assumptions: [`Expanded to at most ${RECURRING_EXPANSION_LIMIT} occurrences.`],
-        actions: [
-          {
-            type: "bulk_create_discrete_tasks",
-            title: taskTitle,
-            description: text,
-            occurrences: occurrences.map((occurrence, index) => ({
-              title: buildRecurringTaskTitle(taskTitle, index, occurrences.length),
-              reminderAt: occurrence.reminderAt ?? null,
-              dueAt: null,
-            })),
-          },
-        ],
-        userFacingSummary: input.locale === "en" ? "I’ll create repeated reminder tasks for the coming week." : "我会把接下来一周的离散提醒任务展开创建出来。",
-      }
+      return buildRecurringReminderPlan(input)
     }
-
-    const occurrences = buildOccurrencesFromRecurringSchedule(text, input.timeZone, now, parseDurationMinutes(text, 30))
-    const actions: AiIntentPlan["actions"] = []
-    if (isDeadlineIntent(text)) {
-      actions.push({
-        type: "upsert_task",
-        title: taskTitle,
-        description: text,
-        status: "TODO",
-        priority: "MEDIUM",
-        dueAt: parseTimePoint(text, input.timeZone, now, { dateOnlyAsEndOfDay: true }).at.toISOString(),
-        matchStrategy: "normalized_title",
-        targetQuery: taskTitle,
-        sourceText: text,
-      })
-    }
-    actions.push({
-      type: "create_recurring_schedule",
-      taskTitle,
-      taskQuery: taskTitle,
-      createTaskIfMissing: true,
-      taskDescriptionIfCreate: text,
-      occurrences,
-    })
-    return {
-      mode: "execute",
-      confidence: 0.96,
-      intentSummary: "Recurring scheduled work sessions",
-      assumptions: [`Expanded to at most ${RECURRING_EXPANSION_LIMIT} schedule occurrences.`],
-      actions,
-      userFacingSummary: input.locale === "en" ? "I’ll set up repeated scheduled sessions for the next week." : "我会为接下来一周建立重复的计划时段。",
-    }
+    return buildRecurringSchedulePlan(input)
   }
 
   const noteClause = clauses.find((clause) => isIdeaLike(clause))
   const actionClause = clauses.find((clause) => clause !== noteClause && isActionLike(clause))
   if (noteClause && actionClause) {
-    const taskTitle = deriveTaskTitle(actionClause)
+    const extracted = extractTitle(actionClause, "task")
+    if (extracted.confidence < 0.95) return null
     const reminder = isReminderIntent(actionClause)
       ? parseTimePoint(actionClause, input.timeZone, now, { defaultHour: 9, defaultMinute: 0 })
       : null
@@ -206,13 +371,13 @@ function buildHeuristicPlan(input: {
       actions: [
         {
           type: "upsert_task",
-          title: taskTitle,
+          title: extracted.title,
           description: actionClause,
           status: "TODO",
           priority: "MEDIUM",
           reminderAt: reminder?.at.toISOString() ?? null,
           matchStrategy: "normalized_title",
-          targetQuery: taskTitle,
+          targetQuery: extracted.title,
           sourceText: actionClause,
         },
         {
@@ -222,7 +387,7 @@ function buildHeuristicPlan(input: {
           contentMd: buildNoteContent(noteClause),
           typeHint: "OTHER",
           importance: "MEDIUM",
-          relatedTaskTitles: [taskTitle],
+          relatedTaskTitles: [extracted.title],
           updateStrategy: "create_new",
           sourceText: noteClause,
         },
@@ -254,99 +419,15 @@ function buildHeuristicPlan(input: {
   }
 
   if (isScheduleIntent(text) && !recurringWindow) {
-    const taskTitle = deriveTaskTitle(text)
-    const start = parseTimePoint(text, input.timeZone, now, {
-      defaultHour: COARSE_TIME_MAP.afternoon.hour,
-      defaultMinute: COARSE_TIME_MAP.afternoon.minute,
-    })
-    const duration = parseDurationMinutes(text, 30)
-    const endAt = new Date(start.at.getTime() + duration * 60000)
-
-    const actions: AiIntentPlan["actions"] = []
-    if (isDeadlineIntent(text)) {
-      actions.push({
-        type: "upsert_task",
-        title: taskTitle,
-        description: text,
-        status: "TODO",
-        priority: "MEDIUM",
-        dueAt: parseTimePoint(text, input.timeZone, now, { dateOnlyAsEndOfDay: true }).at.toISOString(),
-        matchStrategy: "normalized_title",
-        targetQuery: taskTitle,
-        sourceText: text,
-      })
-    }
-    actions.push({
-      type: "schedule_task",
-      taskTitle,
-      taskQuery: taskTitle,
-      createTaskIfMissing: true,
-      taskDescriptionIfCreate: text,
-      startAt: start.at.toISOString(),
-      endAt: endAt.toISOString(),
-      isAllDay: false,
-    })
-    return {
-      mode: "execute",
-      confidence: 0.96,
-      intentSummary: "One-off scheduled work session",
-      assumptions: duration === 30 ? ["No explicit duration found; defaulted to 30 minutes."] : [],
-      actions,
-      userFacingSummary: input.locale === "en" ? "I’ll schedule that task for the specified time." : "我会把这件事安排到对应时段。",
-    }
+    return buildSchedulePlan(input)
   }
 
   if (isDeadlineIntent(text)) {
-    const taskTitle = deriveTaskTitle(text)
-    const dueAt = parseTimePoint(text, input.timeZone, now, { dateOnlyAsEndOfDay: true })
-    return {
-      mode: "execute",
-      confidence: 0.95,
-      intentSummary: "Deadline task",
-      assumptions: ["Date-only deadline mapped to 23:59:59 local time."],
-      actions: [
-        {
-          type: "upsert_task",
-          title: taskTitle,
-          description: text,
-          status: "TODO",
-          priority: "MEDIUM",
-          dueAt: dueAt.at.toISOString(),
-          matchStrategy: "normalized_title",
-          targetQuery: taskTitle,
-          sourceText: text,
-        },
-      ],
-      userFacingSummary: input.locale === "en" ? "I’ll create or update the task with a deadline." : "我会创建或更新这个任务，并设置截止时间。",
-    }
+    return buildDeadlinePlan(input)
   }
 
   if (isReminderIntent(text)) {
-    const taskTitle = deriveTaskTitle(text)
-    const reminderAt = parseTimePoint(text, input.timeZone, now, {
-      defaultHour: COARSE_TIME_MAP.morning.hour,
-      defaultMinute: COARSE_TIME_MAP.morning.minute,
-    })
-    return {
-      mode: "execute",
-      confidence: 0.96,
-      intentSummary: "Discrete reminder task",
-      assumptions: [],
-      actions: [
-        {
-          type: "upsert_task",
-          title: taskTitle,
-          description: text,
-          status: "TODO",
-          priority: "MEDIUM",
-          reminderAt: reminderAt.at.toISOString(),
-          matchStrategy: "normalized_title",
-          targetQuery: taskTitle,
-          sourceText: text,
-        },
-      ],
-      userFacingSummary: input.locale === "en" ? "I’ll create or update a reminder task." : "我会创建或更新一个带提醒时间的任务。",
-    }
+    return buildReminderPlan(input)
   }
 
   return null
@@ -359,10 +440,11 @@ export async function planAiIntent(input: {
   context: AiPlannerContext
 }): Promise<AiIntentPlan> {
   const latestUserMessage = [...input.messages].reverse().find((message) => message.role === "user")?.content ?? ""
-  const heuristic = buildHeuristicPlan({
+  const heuristic = buildDeterministicPlan({
     text: latestUserMessage,
     locale: input.locale,
     timeZone: input.timeZone,
+    routeKind: "FULL_PLANNER",
   })
   if (heuristic) {
     return aiIntentPlanSchema.parse(heuristic)

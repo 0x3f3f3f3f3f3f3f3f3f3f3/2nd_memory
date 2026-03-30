@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/prisma"
-import {
+import type {
   AiAction,
   AiExecutionMutation,
   AiExecutionResult,
   AiIntentPlan,
+  ClearFutureTimeBlocksAction,
+  ClearTaskScheduleAction,
+  DeleteTasksInScopeAction,
 } from "@/server/ai/contracts"
 import { normalizeTitleForMatch } from "@/server/ai/normalization"
 import {
@@ -14,11 +17,19 @@ import {
   resolveNoteCandidate,
   resolveTaskCandidate,
 } from "@/server/ai/retrieval"
+import { buildAiSummary } from "@/server/ai/summary"
+import { taskInclude } from "@/server/services/common"
 import { createInboxItem } from "@/server/services/inbox-service"
 import { createNote, updateNote, upsertNoteLink } from "@/server/services/notes-service"
 import { createTag, listTags } from "@/server/services/tags-service"
-import { createTask, createTimeBlock, updateTask } from "@/server/services/tasks-service"
-import { taskInclude } from "@/server/services/common"
+import {
+  clearFutureTimeBlocks,
+  clearTaskSchedule,
+  createTask,
+  createTimeBlock,
+  deleteTasksByIds,
+  updateTask,
+} from "@/server/services/tasks-service"
 
 type TaskWriteResult = {
   id: string
@@ -44,8 +55,13 @@ type NoteWriteResult = {
   noteTasks: Array<{ task: { id: string; title: string } }>
 }
 
+export type ExecutionStateOptions = {
+  scope?: "full" | "tasks" | "notes" | "destructive"
+  query?: string | null
+}
+
 export type AiExecutionRepository = {
-  loadState(userId: string): Promise<ExecutionState>
+  loadState(userId: string, options?: ExecutionStateOptions): Promise<ExecutionState>
   createInbox(userId: string, content: string): Promise<{ id: string }>
   createTag(userId: string, input: { name: string; color: string }): Promise<{ id: string; name: string; color: string }>
   createTask(userId: string, input: Parameters<typeof createTask>[1]): Promise<TaskWriteResult>
@@ -54,6 +70,9 @@ export type AiExecutionRepository = {
   createNote(userId: string, input: Parameters<typeof createNote>[1]): Promise<NoteWriteResult>
   updateNote(userId: string, id: string, input: Parameters<typeof updateNote>[2]): Promise<NoteWriteResult>
   upsertNoteLink(userId: string, input: Parameters<typeof upsertNoteLink>[1]): Promise<Awaited<ReturnType<typeof upsertNoteLink>>>
+  clearFutureTimeBlocks(userId: string, input: Parameters<typeof clearFutureTimeBlocks>[1]): Promise<{ count: number }>
+  clearTaskSchedule(userId: string, taskId: string, input?: Parameters<typeof clearTaskSchedule>[2]): Promise<{ count: number }>
+  deleteTasksByIds(userId: string, taskIds: string[]): Promise<{ count: number }>
 }
 
 type ExecutionState = {
@@ -65,24 +84,58 @@ type ExecutionState = {
 }
 
 export const productionAiExecutionRepository: AiExecutionRepository = {
-  async loadState(userId: string) {
-    const [tasks, notes, tags] = await Promise.all([
-      prisma.task.findMany({
-        where: { userId, status: { not: "ARCHIVED" } },
-        include: taskInclude,
-        orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
-        take: 200,
-      }),
-      prisma.note.findMany({
-        where: { userId, archivedAt: null },
-        include: {
-          noteTasks: { include: { task: true } },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 200,
-      }),
-      listTags(userId),
-    ])
+  async loadState(userId: string, options?: ExecutionStateOptions) {
+    const scope = options?.scope ?? "full"
+    const query = options?.query?.trim()
+
+    const taskPromise =
+      scope === "notes"
+        ? Promise.resolve([])
+        : prisma.task.findMany({
+            where: {
+              userId,
+              status: { not: "ARCHIVED" },
+              ...(scope === "tasks" && query
+                ? {
+                    OR: [
+                      { title: { contains: query, mode: "insensitive" } },
+                      { description: { contains: query, mode: "insensitive" } },
+                    ],
+                  }
+                : {}),
+            },
+            include: taskInclude,
+            orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+            take: scope === "full" ? 200 : scope === "destructive" ? 200 : 20,
+          })
+
+    const notePromise =
+      scope === "tasks" || scope === "destructive"
+        ? Promise.resolve([])
+        : prisma.note.findMany({
+            where: {
+              userId,
+              archivedAt: null,
+              ...(scope === "notes" && query
+                ? {
+                    OR: [
+                      { title: { contains: query, mode: "insensitive" } },
+                      { summary: { contains: query, mode: "insensitive" } },
+                      { contentMd: { contains: query, mode: "insensitive" } },
+                    ],
+                  }
+                : {}),
+            },
+            include: {
+              noteTasks: { include: { task: true } },
+            },
+            orderBy: { updatedAt: "desc" },
+            take: scope === "full" ? 200 : 24,
+          })
+
+    const tagPromise = scope === "destructive" ? Promise.resolve([]) : listTags(userId)
+
+    const [tasks, notes, tags] = await Promise.all([taskPromise, notePromise, tagPromise])
 
     return {
       tasks: tasks.map((task) => ({
@@ -126,6 +179,9 @@ export const productionAiExecutionRepository: AiExecutionRepository = {
   createNote,
   updateNote,
   upsertNoteLink,
+  clearFutureTimeBlocks,
+  clearTaskSchedule,
+  deleteTasksByIds,
 }
 
 function appendUniqueContent(existing: string, next: string) {
@@ -144,28 +200,14 @@ async function ensureTagIds(userId: string, state: ExecutionState, repo: AiExecu
       ids.add(existing.id)
       continue
     }
-    const created = await repo.createTag(userId, {
-      name,
-      color: "#C96444",
-    })
+    const created = await repo.createTag(userId, { name, color: "#C96444" })
     state.tags.push({ id: created.id, name: created.name, color: created.color })
     ids.add(created.id)
   }
   return Array.from(ids)
 }
 
-function registerTask(state: ExecutionState, task: {
-  id: string
-  title: string
-  description: string | null
-  status: string
-  priority: string
-  dueAt: Date | null
-  reminderAt: Date | null
-  updatedAt: Date
-  subTasks?: Array<{ id: string; title: string; done: boolean }>
-  timeBlocks?: Array<{ id: string; startAt: Date; endAt: Date; isAllDay: boolean; subTaskId?: string | null }>
-}) {
+function registerTask(state: ExecutionState, task: TaskWriteResult) {
   const next: AiTaskRecord = {
     id: task.id,
     title: task.title,
@@ -176,7 +218,7 @@ function registerTask(state: ExecutionState, task: {
     reminderAt: task.reminderAt,
     updatedAt: task.updatedAt,
     subTasks: task.subTasks ?? [],
-    timeBlocks: (task.timeBlocks ?? []).map((block) => ({
+    timeBlocks: task.timeBlocks.map((block) => ({
       id: block.id,
       startAt: block.startAt,
       endAt: block.endAt,
@@ -191,16 +233,7 @@ function registerTask(state: ExecutionState, task: {
   return next
 }
 
-function registerNote(state: ExecutionState, note: {
-  id: string
-  title: string
-  summary: string
-  contentMd: string
-  type: string
-  importance: string
-  updatedAt: Date
-  noteTasks?: Array<{ task: { id: string; title: string } }>
-}) {
+function registerNote(state: ExecutionState, note: NoteWriteResult) {
   const next: AiNoteRecord = {
     id: note.id,
     title: note.title,
@@ -259,7 +292,13 @@ async function executeUpsertTask(userId: string, action: Extract<AiAction, { typ
       tagIds,
     })
     registerTask(state, updated)
-    mutations.push({ type: "task_updated", taskId: updated.id, title: updated.title })
+    mutations.push({
+      type: "task_updated",
+      taskId: updated.id,
+      title: updated.title,
+      dueAt: updated.dueAt?.toISOString() ?? null,
+      reminderAt: updated.reminderAt?.toISOString() ?? null,
+    })
     return updated.id
   }
 
@@ -274,7 +313,13 @@ async function executeUpsertTask(userId: string, action: Extract<AiAction, { typ
     tagIds,
   })
   registerTask(state, created)
-  mutations.push({ type: "task_created", taskId: created.id, title: created.title })
+  mutations.push({
+    type: "task_created",
+    taskId: created.id,
+    title: created.title,
+    dueAt: created.dueAt?.toISOString() ?? null,
+    reminderAt: created.reminderAt?.toISOString() ?? null,
+  })
   return created.id
 }
 
@@ -294,14 +339,20 @@ async function executeScheduleTask(userId: string, action: Extract<AiAction, { t
           matchStrategy: "always_create",
         }, state, mutations, repo)
       : null)
-
   if (!taskId) return
   const task = state.tasks.find((item) => item.id === taskId)
   if (!task) return
 
   const existing = hasExistingTimeBlock(task, { startAt: action.startAt, endAt: action.endAt })
   if (existing) {
-    mutations.push({ type: "time_block_reused", taskId: task.id, taskTitle: task.title, blockId: existing.id })
+    mutations.push({
+      type: "time_block_reused",
+      taskId: task.id,
+      taskTitle: task.title,
+      blockId: existing.id,
+      startAt: existing.startAt.toISOString(),
+      endAt: existing.endAt.toISOString(),
+    })
     return
   }
 
@@ -317,11 +368,18 @@ async function executeScheduleTask(userId: string, action: Extract<AiAction, { t
     isAllDay: block.isAllDay,
     subTaskId: block.subTaskId ?? null,
   })
-  mutations.push({ type: "time_block_created", taskId: task.id, taskTitle: task.title, blockId: block.id })
+  mutations.push({
+    type: "time_block_created",
+    taskId: task.id,
+    taskTitle: task.title,
+    blockId: block.id,
+    startAt: block.startAt.toISOString(),
+    endAt: block.endAt.toISOString(),
+  })
 }
 
 async function executeRecurringSchedule(userId: string, action: Extract<AiAction, { type: "create_recurring_schedule" }>, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
-  const taskId = await executeUpsertTask(userId, {
+  await executeUpsertTask(userId, {
     type: "upsert_task",
     title: action.taskTitle,
     description: action.taskDescriptionIfCreate,
@@ -342,8 +400,6 @@ async function executeRecurringSchedule(userId: string, action: Extract<AiAction
       isAllDay: occurrence.isAllDay ?? false,
     }, state, mutations, repo)
   }
-
-  return taskId
 }
 
 async function executeBulkDiscreteTasks(userId: string, action: Extract<AiAction, { type: "bulk_create_discrete_tasks" }>, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
@@ -379,10 +435,7 @@ async function executeUpsertNote(userId: string, action: Extract<AiAction, { typ
     const updated = await repo.updateNote(userId, existing.id, {
       title: action.updateStrategy === "append" ? existing.title : action.title,
       summary: action.summary || existing.summary,
-      contentMd:
-        action.updateStrategy === "replace"
-          ? action.contentMd
-          : appendUniqueContent(existing.contentMd, action.contentMd),
+      contentMd: action.updateStrategy === "replace" ? action.contentMd : appendUniqueContent(existing.contentMd, action.contentMd),
       type: (action.typeHint ?? existing.type) as never,
       importance: (action.importance ?? existing.importance) as never,
       tagIds,
@@ -421,19 +474,9 @@ async function executeUpsertNote(userId: string, action: Extract<AiAction, { typ
 }
 
 async function executeLinkNoteToNote(userId: string, action: Extract<AiAction, { type: "link_note_to_note" }>, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
-  const fromNoteId = findNoteIdByQuery(state, {
-    id: action.fromId ?? null,
-    title: action.fromTitle ?? null,
-    search: action.fromQuery ?? null,
-  })
-  const toNoteId = findNoteIdByQuery(state, {
-    id: action.toId ?? null,
-    title: action.toTitle ?? null,
-    search: action.toQuery ?? null,
-  })
-
+  const fromNoteId = findNoteIdByQuery(state, { id: action.fromId ?? null, title: action.fromTitle ?? null, search: action.fromQuery ?? null })
+  const toNoteId = findNoteIdByQuery(state, { id: action.toId ?? null, title: action.toTitle ?? null, search: action.toQuery ?? null })
   if (!fromNoteId || !toNoteId) return
-
   await repo.upsertNoteLink(userId, {
     fromNoteId,
     toNoteId,
@@ -442,31 +485,66 @@ async function executeLinkNoteToNote(userId: string, action: Extract<AiAction, {
   mutations.push({ type: "note_linked", fromNoteId, toNoteId, relationType: action.relationType })
 }
 
-function buildExecutionSummary(locale: "zh-Hans" | "en", mutations: AiExecutionMutation[]) {
-  if (mutations.length === 0) {
-    return locale === "en" ? "I understood the request, but there was nothing to change." : "我理解了你的意图，但没有需要实际变更的数据。"
+async function executeClearFutureTimeBlocks(userId: string, action: ClearFutureTimeBlocksAction, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
+  if (action.scope === "matched_task") {
+    const task = resolveTaskCandidate(state.tasks, {
+      title: action.taskTitle ?? null,
+      query: action.taskQuery ?? action.taskTitle ?? null,
+    })?.item
+    if (!task) return
+    const result = await repo.clearFutureTimeBlocks(userId, {
+      taskId: task.id,
+      startAt: action.startAt ?? new Date().toISOString(),
+      endAt: action.endAt ?? null,
+    })
+    mutations.push({ type: "future_time_blocks_cleared", count: result.count, scope: "matched_task", taskTitle: task.title })
+    return
   }
 
-  const counts = mutations.reduce<Record<string, number>>((acc, mutation) => {
-    acc[mutation.type] = (acc[mutation.type] ?? 0) + 1
-    return acc
-  }, {})
+  const result = await repo.clearFutureTimeBlocks(userId, {
+    startAt: action.startAt ?? new Date().toISOString(),
+    endAt: action.endAt ?? null,
+    taskId: null,
+  })
+  mutations.push({ type: "future_time_blocks_cleared", count: result.count, scope: action.scope })
+}
 
-  if (locale === "en") {
-    return `Done: ${Object.entries(counts).map(([type, count]) => `${type} x${count}`).join(", ")}.`
+async function executeClearTaskSchedule(userId: string, action: ClearTaskScheduleAction, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
+  const task = resolveTaskCandidate(state.tasks, {
+    title: action.taskTitle,
+    query: action.taskQuery ?? action.taskTitle,
+  })?.item
+  if (!task) return
+  const result = await repo.clearTaskSchedule(userId, task.id, { futureOnly: action.futureOnly })
+  mutations.push({ type: "future_time_blocks_cleared", count: result.count, scope: "matched_task", taskTitle: task.title })
+}
+
+async function executeDeleteTasksInScope(userId: string, action: DeleteTasksInScopeAction, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
+  let taskIds: string[] = []
+  if (action.scope === "all") {
+    taskIds = state.tasks.map((task) => task.id)
+  } else {
+    const task = resolveTaskCandidate(state.tasks, {
+      title: action.taskTitle ?? null,
+      query: action.taskQuery ?? action.taskTitle ?? null,
+    })?.item
+    if (task) taskIds = [task.id]
   }
-  return `已执行：${Object.entries(counts).map(([type, count]) => `${type} ×${count}`).join("，")}。`
+  const result = await repo.deleteTasksByIds(userId, taskIds)
+  mutations.push({ type: "tasks_deleted", count: result.count })
 }
 
 export async function executeAiIntentPlan(input: {
   userId: string
   locale: "zh-Hans" | "en"
+  timeZone?: string
   plan: AiIntentPlan
   onMutation?: () => void
   repository?: AiExecutionRepository
+  stateOptions?: ExecutionStateOptions
 }): Promise<AiExecutionResult> {
   const repository = input.repository ?? productionAiExecutionRepository
-  const state = await repository.loadState(input.userId)
+  const state = await repository.loadState(input.userId, input.stateOptions)
   const mutations: AiExecutionMutation[] = []
 
   if (input.plan.mode !== "execute") {
@@ -502,6 +580,15 @@ export async function executeAiIntentPlan(input: {
         mutations.push({ type: "inbox_captured", inboxId: inbox.id })
         break
       }
+      case "clear_future_time_blocks":
+        await executeClearFutureTimeBlocks(input.userId, action, state, mutations, repository)
+        break
+      case "clear_task_schedule":
+        await executeClearTaskSchedule(input.userId, action, state, mutations, repository)
+        break
+      case "delete_tasks_in_scope":
+        await executeDeleteTasksInScope(input.userId, action, state, mutations, repository)
+        break
       default: {
         const exhaustiveCheck: never = action
         throw new Error(`Unhandled AI action: ${JSON.stringify(exhaustiveCheck)}`)
@@ -516,6 +603,11 @@ export async function executeAiIntentPlan(input: {
   return {
     plan: input.plan,
     mutations,
-    userFacingSummary: buildExecutionSummary(input.locale, mutations),
+    userFacingSummary: buildAiSummary({
+      plan: input.plan,
+      mutations,
+      locale: input.locale,
+      timeZone: input.timeZone ?? "UTC",
+    }),
   }
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { isAuthenticated, getCurrentUserId } from "@/lib/auth"
-import { streamAiChat } from "@/server/services/ai-chat-service"
+import { streamAiChat, toServerTimingHeader } from "@/server/services/ai-chat-service"
 
 function revalidateAll() {
   for (const path of ["/tasks", "/timeline", "/ddl", "/inbox", "/notes", "/tags"]) {
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "无效请求" }, { status: 400 })
   }
 
-  const stream = await streamAiChat({
+  const result = await streamAiChat({
     userId,
     locale: body.locale === "en" ? "en" : "zh-Hans",
     timeZone: typeof body.timezone === "string" && body.timezone ? body.timezone : "UTC",
@@ -28,10 +28,12 @@ export async function POST(request: NextRequest) {
     onMutation: revalidateAll,
   })
 
-  return new Response(stream, {
+  return new Response(result.stream, {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache",
+      "Server-Timing": toServerTimingHeader(result.diagnostics.timings),
+      "X-AI-Route-Kind": result.diagnostics.routeKind,
     },
   })
 }

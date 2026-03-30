@@ -352,3 +352,55 @@ export async function deleteTimeBlock(userId: string, id: string) {
   }
   await prisma.timeBlock.delete({ where: { id } })
 }
+
+export async function clearFutureTimeBlocks(
+  userId: string,
+  input: {
+    taskId?: string | null
+    startAt?: string | null
+    endAt?: string | null
+  } = {},
+) {
+  const start = input.startAt ? new Date(input.startAt) : new Date()
+  const end = input.endAt ? new Date(input.endAt) : undefined
+
+  const result = await prisma.timeBlock.deleteMany({
+    where: {
+      task: { userId },
+      ...(input.taskId ? { taskId: input.taskId } : {}),
+      startAt: {
+        gte: start,
+        ...(end ? { lt: end } : {}),
+      },
+    },
+  })
+
+  return { count: result.count }
+}
+
+export async function clearTaskSchedule(
+  userId: string,
+  taskId: string,
+  input?: { futureOnly?: boolean },
+) {
+  await getTask(userId, taskId)
+  const result = await prisma.timeBlock.deleteMany({
+    where: {
+      taskId,
+      task: { userId },
+      ...(input?.futureOnly === false ? {} : { startAt: { gte: new Date() } }),
+    },
+  })
+  return { count: result.count }
+}
+
+export async function deleteTasksByIds(userId: string, taskIds: string[]) {
+  if (taskIds.length === 0) return { count: 0 }
+  const result = await prisma.task.deleteMany({
+    where: {
+      userId,
+      id: { in: taskIds },
+    },
+  })
+  return { count: result.count }
+}

@@ -84,6 +84,21 @@ describe("AI regression intents", () => {
     expect(runtime.db.tasks[0].timeBlocks.length).toBeGreaterThanOrEqual(7)
   })
 
+  it("4b. 接下来一周我每天晚上9点要做30分钟托福 -> recurring schedule with clean title", async () => {
+    const { runtime, result } = await planAndExecute({ text: "接下来一周我每天晚上9点要做30分钟托福" })
+    expect(runtime.db.inbox).toHaveLength(0)
+    expect(runtime.db.notes).toHaveLength(0)
+    expect(runtime.db.tasks).toHaveLength(1)
+    expect(runtime.db.tasks[0].title).toBe("托福")
+    expect(runtime.db.tasks[0].timeBlocks).toHaveLength(7)
+    const first = new TZDate(runtime.db.tasks[0].timeBlocks[0].startAt, "Asia/Shanghai")
+    const firstEnd = new TZDate(runtime.db.tasks[0].timeBlocks[0].endAt, "Asia/Shanghai")
+    expect(first.getHours()).toBe(21)
+    expect(firstEnd.getMinutes() - first.getMinutes() + (firstEnd.getHours() - first.getHours()) * 60).toBe(30)
+    expect(result.userFacingSummary).toContain("托福")
+    expect(result.userFacingSummary).not.toContain("我每天晚上9点要做")
+  })
+
   it("5. 接下来一周每天中午吃药 -> expanded reminder tasks", async () => {
     const { runtime } = await planAndExecute({ text: "接下来一周每天中午吃药" })
     expect(runtime.db.tasks.length).toBeGreaterThanOrEqual(7)

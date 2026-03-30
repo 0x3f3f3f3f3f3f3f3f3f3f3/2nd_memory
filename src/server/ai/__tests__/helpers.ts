@@ -86,7 +86,7 @@ export function createInMemoryRepository(seed: SeedState = {}) {
   const noteLinks: Array<{ id?: string; fromNoteId: string; toNoteId: string; relationType: RelationType }> = [...(seed.noteLinks ?? [])]
 
   const repository: AiExecutionRepository = {
-    async loadState() {
+    async loadState(_userId, _options) {
       return {
         tasks: tasks.map((task) => ({
           ...task,
@@ -208,6 +208,38 @@ export function createInMemoryRepository(seed: SeedState = {}) {
       }
       noteLinks.push(created)
       return created
+    },
+    async clearFutureTimeBlocks(_userId, input = {}) {
+      const start = input.startAt ? new Date(input.startAt) : new Date()
+      const end = input.endAt ? new Date(input.endAt) : null
+      let count = 0
+      for (const task of tasks) {
+        if (input.taskId && task.id !== input.taskId) continue
+        const before = task.timeBlocks.length
+        task.timeBlocks = task.timeBlocks.filter((block) => {
+          if (block.startAt < start) return true
+          if (end && block.startAt >= end) return true
+          return false
+        })
+        count += before - task.timeBlocks.length
+      }
+      return { count }
+    },
+    async clearTaskSchedule(_userId, taskId, input) {
+      const task = tasks.find((item) => item.id === taskId)
+      if (!task) return { count: 0 }
+      const now = new Date()
+      const before = task.timeBlocks.length
+      task.timeBlocks = task.timeBlocks.filter((block) => (input?.futureOnly === false ? false : block.startAt < now))
+      return { count: before - task.timeBlocks.length }
+    },
+    async deleteTasksByIds(_userId, taskIds) {
+      const before = tasks.length
+      for (const taskId of taskIds) {
+        const index = tasks.findIndex((task) => task.id === taskId)
+        if (index >= 0) tasks.splice(index, 1)
+      }
+      return { count: before - tasks.length }
     },
   }
 

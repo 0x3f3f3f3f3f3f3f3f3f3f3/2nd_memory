@@ -94,6 +94,32 @@ export const captureToInboxActionSchema = z.object({
   content: z.string().trim().min(1).max(4000),
 })
 
+export const clearFutureTimeBlocksActionSchema = z.object({
+  type: z.literal("clear_future_time_blocks"),
+  scope: z.enum(["all_tasks", "matched_task", "date_range"]),
+  taskTitle: z.string().trim().max(300).optional(),
+  taskQuery: z.string().trim().max(300).optional(),
+  startAt: z.string().datetime({ offset: true }).optional(),
+  endAt: z.string().datetime({ offset: true }).optional(),
+  preserveTasks: z.literal(true).default(true),
+})
+
+export const clearTaskScheduleActionSchema = z.object({
+  type: z.literal("clear_task_schedule"),
+  taskTitle: z.string().trim().min(1).max(300),
+  taskQuery: z.string().trim().max(300).optional(),
+  futureOnly: z.boolean().default(true),
+})
+
+export const deleteTasksInScopeActionSchema = z.object({
+  type: z.literal("delete_tasks_in_scope"),
+  scope: z.enum(["all", "matched_task", "query"]),
+  taskTitle: z.string().trim().max(300).optional(),
+  taskQuery: z.string().trim().max(300).optional(),
+  futureOnly: z.boolean().optional(),
+  archiveInsteadOfDelete: z.boolean().optional(),
+})
+
 export const aiActionSchema = z.discriminatedUnion("type", [
   upsertTaskActionSchema,
   scheduleTaskActionSchema,
@@ -102,6 +128,9 @@ export const aiActionSchema = z.discriminatedUnion("type", [
   upsertNoteActionSchema,
   linkNoteToNoteActionSchema,
   captureToInboxActionSchema,
+  clearFutureTimeBlocksActionSchema,
+  clearTaskScheduleActionSchema,
+  deleteTasksInScopeActionSchema,
 ])
 
 export const aiIntentPlanSchema = z.object({
@@ -121,6 +150,9 @@ export type CreateRecurringScheduleAction = z.infer<typeof createRecurringSchedu
 export type BulkCreateDiscreteTasksAction = z.infer<typeof bulkCreateDiscreteTasksActionSchema>
 export type UpsertNoteAction = z.infer<typeof upsertNoteActionSchema>
 export type LinkNoteToNoteAction = z.infer<typeof linkNoteToNoteActionSchema>
+export type ClearFutureTimeBlocksAction = z.infer<typeof clearFutureTimeBlocksActionSchema>
+export type ClearTaskScheduleAction = z.infer<typeof clearTaskScheduleActionSchema>
+export type DeleteTasksInScopeAction = z.infer<typeof deleteTasksInScopeActionSchema>
 
 export type AiPlannerContext = {
   nowIso: string
@@ -157,14 +189,16 @@ export type AiPlannerContext = {
 }
 
 export type AiExecutionMutation =
-  | { type: "task_created"; taskId: string; title: string }
-  | { type: "task_updated"; taskId: string; title: string }
-  | { type: "time_block_created"; taskId: string; taskTitle: string; blockId: string }
-  | { type: "time_block_reused"; taskId: string; taskTitle: string; blockId: string }
+  | { type: "task_created"; taskId: string; title: string; dueAt?: string | null; reminderAt?: string | null }
+  | { type: "task_updated"; taskId: string; title: string; dueAt?: string | null; reminderAt?: string | null }
+  | { type: "time_block_created"; taskId: string; taskTitle: string; blockId: string; startAt: string; endAt: string }
+  | { type: "time_block_reused"; taskId: string; taskTitle: string; blockId: string; startAt: string; endAt: string }
   | { type: "note_created"; noteId: string; title: string }
   | { type: "note_updated"; noteId: string; title: string }
   | { type: "note_linked"; fromNoteId: string; toNoteId: string; relationType: z.infer<typeof relationTypeSchema> }
   | { type: "inbox_captured"; inboxId: string }
+  | { type: "future_time_blocks_cleared"; count: number; scope: "all_tasks" | "matched_task" | "date_range"; taskTitle?: string }
+  | { type: "tasks_deleted"; count: number }
 
 export type AiExecutionResult = {
   plan: AiIntentPlan
@@ -173,3 +207,13 @@ export type AiExecutionResult = {
 }
 
 export const RECURRING_EXPANSION_LIMIT = 30
+
+export type AiRouteKind =
+  | "NON_DB_CHAT"
+  | "FAST_REMINDER_TASK"
+  | "FAST_DEADLINE_TASK"
+  | "FAST_SCHEDULE_TASK"
+  | "FAST_RECURRING_REMINDER"
+  | "FAST_RECURRING_SCHEDULE"
+  | "DESTRUCTIVE_SCHEDULE"
+  | "FULL_PLANNER"
