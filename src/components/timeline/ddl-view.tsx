@@ -3,10 +3,11 @@ import { useState, useEffect } from "react"
 import { format, isToday, isBefore, startOfDay, addDays, endOfWeek, addWeeks } from "date-fns"
 import { cn, toChina, chinaNow } from "@/lib/utils"
 import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
-import { AlertTriangle, Clock, Flag, CalendarClock, Check, Loader2 } from "lucide-react"
+import { AlertTriangle, Clock, Flag, CalendarClock, Check, Loader2, ChevronDown, ChevronRight, Pencil } from "lucide-react"
 import { cycleTaskStatus } from "@/lib/actions/tasks"
 import { useT } from "@/contexts/locale-context"
 import type { Task, TaskTag, Tag, SubTask, TimeBlock } from "@prisma/client"
+import { TaskSubtasks } from "@/components/tasks/task-subtasks"
 
 type TaskWithRelations = Task & {
   taskTags: (TaskTag & { tag: Tag })[]
@@ -45,13 +46,14 @@ function TaskCard({
   task: TaskWithRelations
   allTags: Tag[]
   index: number
-  onSelectTask?: (task: TaskWithRelations) => void
+  onSelectTask?: (task: TaskWithRelations, mode?: "view" | "edit") => void
 }) {
   const t = useT()
   // Fallback dialog state when no onSelectTask provided (backward compat)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [localStatus, setLocalStatus] = useState(task.status)
   const [isPending, setIsPending] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     setLocalStatus(task.status)
@@ -73,21 +75,34 @@ function TaskCard({
     cycleTaskStatus(task.id, localStatus).finally(() => setIsPending(false))
   }
 
-  const handleClick = () => {
+  const subTaskCount = (task.subTasks ?? []).length
+  const doneSubTaskCount = (task.subTasks ?? []).filter((subTask) => subTask.done).length
+
+  const openEditor = (event: React.MouseEvent) => {
+    event.stopPropagation()
     if (onSelectTask) {
-      onSelectTask(task)
+      onSelectTask(task, "edit")
     } else {
       setDialogOpen(true)
     }
+  }
+
+  const toggleExpanded = () => {
+    setExpanded((prev) => !prev)
   }
 
   return (
     <>
       <div
         data-ddl-task-trigger="true"
-        onClick={handleClick}
+        onClick={(event) => {
+          const target = event.target as HTMLElement
+          if (target.closest("button, a, input, textarea, select, label, [role='button']")) return
+          if (target.closest("[data-task-subtasks-body='true']")) return
+          toggleExpanded()
+        }}
         className={cn(
-          "group flex items-center gap-3 px-3 py-2.5 rounded-2xl cursor-pointer",
+          "group flex items-start gap-3 px-3 py-2.5 rounded-2xl cursor-pointer",
           "bg-[var(--liquid-glass-bg)]",
           "border border-[var(--liquid-glass-border)]",
           "backdrop-blur-md",
@@ -101,86 +116,132 @@ function TaskCard({
         )}
         style={{ animationDelay: `${index * 40}ms` }}
       >
-        {/* Status cycle button */}
-        <button
-          onClick={handleCycle}
-          disabled={isPending}
-          className={cn(
-            "flex-shrink-0 w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center",
-            STATUS_ICON_COLOR[localStatus] ?? STATUS_ICON_COLOR.TODO,
-            "min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 -ml-2 md:ml-0",
-          )}
-          title={t.taskDetail.statusCycleTitle(localStatus)}
-        >
-          {localStatus === "DONE" && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
-          {localStatus === "DOING" && <Loader2 className="w-2.5 h-2.5 text-amber-400 animate-spin" />}
-        </button>
+        <div className="w-full">
+          <div className="flex items-center gap-3">
+            {/* Status cycle button */}
+            <button
+              onClick={handleCycle}
+              disabled={isPending}
+              className={cn(
+                "flex-shrink-0 w-4 h-4 rounded-full border-2 transition-all flex items-center justify-center",
+                STATUS_ICON_COLOR[localStatus] ?? STATUS_ICON_COLOR.TODO,
+                "min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 -ml-2 md:ml-0",
+              )}
+              title={t.taskDetail.statusCycleTitle(localStatus)}
+            >
+              {localStatus === "DONE" && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
+              {localStatus === "DOING" && <Loader2 className="w-2.5 h-2.5 text-amber-400 animate-spin" />}
+            </button>
 
-        {/* Priority dot */}
-        <span className={cn(
-          "w-2 h-2 rounded-full flex-shrink-0 transition-transform duration-200 group-hover:scale-125",
-          P_DOT[task.priority],
-          isOverdue && "ring-2 ring-red-400/40 ring-offset-1 ring-offset-transparent",
-        )} />
+            {/* Priority dot */}
+            <span className={cn(
+              "w-2 h-2 rounded-full flex-shrink-0 transition-transform duration-200 group-hover:scale-125",
+              P_DOT[task.priority],
+              isOverdue && "ring-2 ring-red-400/40 ring-offset-1 ring-offset-transparent",
+            )} />
 
-        <div className="flex-1 min-w-0">
-          <p className={cn(
-            "text-sm font-medium truncate transition-colors duration-150",
-            "group-hover:text-[--foreground]",
-            localStatus === "DONE" && "line-through text-[--muted-foreground]",
-          )}>
-            {task.title}
-          </p>
-          {task.taskTags.length > 0 && (
-            <div className="flex gap-1 mt-0.5">
-              {task.taskTags.slice(0, 3).map(tt => (
-                <span
-                  key={tt.tagId}
-                  className="text-[9px] px-1.5 py-px rounded-full bg-[var(--liquid-glass-chip-bg)] text-[--muted-foreground] border border-[var(--liquid-glass-border-soft)]"
-                >
-                  {tt.tag.name}
-                </span>
-              ))}
+            <div className="flex-1 min-w-0">
+              <p className={cn(
+                "text-sm font-medium truncate transition-colors duration-150",
+                "group-hover:text-[--foreground]",
+                localStatus === "DONE" && "line-through text-[--muted-foreground]",
+              )}>
+                {task.title}
+              </p>
+              {task.taskTags.length > 0 && (
+                <div className="flex gap-1 mt-0.5">
+                  {task.taskTags.slice(0, 3).map(tt => (
+                    <span
+                      key={tt.tagId}
+                      className="text-[9px] px-1.5 py-px rounded-full bg-[var(--liquid-glass-chip-bg)] text-[--muted-foreground] border border-[var(--liquid-glass-border-soft)]"
+                    >
+                      {tt.tag.name}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {task.dueAt && (
-          <span className={cn(
-            "text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0",
-            isOverdue
-              ? "bg-red-100/80 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-700/30"
-              : "bg-[var(--liquid-glass-chip-bg)] text-[--muted-foreground] border border-[var(--liquid-glass-border-soft)]",
-          )}>
-            {isToday(toChina(task.dueAt))
-              ? t.ddl.today
-              : format(toChina(task.dueAt), "M/d EEE", { locale: t.dateFnsLocale })}
-          </span>
-        )}
+            {task.dueAt && (
+              <span className={cn(
+                "text-[11px] font-medium px-2 py-0.5 rounded-full flex-shrink-0",
+                isOverdue
+                  ? "bg-red-100/80 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-700/30"
+                  : "bg-[var(--liquid-glass-chip-bg)] text-[--muted-foreground] border border-[var(--liquid-glass-border-soft)]",
+              )}>
+                {isToday(toChina(task.dueAt))
+                  ? t.ddl.today
+                  : format(toChina(task.dueAt), "M/d EEE", { locale: t.dateFnsLocale })}
+              </span>
+            )}
 
-        <div className="flex-shrink-0 w-20 hidden sm:block">
-          {hasEstimate ? (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] text-[--muted-foreground]/70 whitespace-nowrap">
-                  {formatDuration(scheduledMin)}/{formatDuration(estimateMin)}
-                </span>
-                {progress >= 1 && <span className="text-[9px] text-emerald-500">✓</span>}
-              </div>
-              <div className="h-1 rounded-full bg-[--foreground]/[0.06] overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-500",
-                    progress >= 1 ? "bg-emerald-500" : progress > 0 ? "bg-[--primary]" : "bg-transparent",
-                  )}
-                  style={{ width: `${progress * 100}%` }}
-                />
-              </div>
+            <div className="flex-shrink-0 w-20 hidden sm:block">
+              {hasEstimate ? (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] text-[--muted-foreground]/70 whitespace-nowrap">
+                      {formatDuration(scheduledMin)}/{formatDuration(estimateMin)}
+                    </span>
+                    {progress >= 1 && <span className="text-[9px] text-emerald-500">✓</span>}
+                  </div>
+                  <div className="h-1 rounded-full bg-[--foreground]/[0.06] overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-500",
+                        progress >= 1 ? "bg-emerald-500" : progress > 0 ? "bg-[--primary]" : "bg-transparent",
+                      )}
+                      style={{ width: `${progress * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ) : blocks.length > 0 ? (
+                <span className="text-[9px] text-[--muted-foreground]/70">{formatDuration(scheduledMin)}</span>
+              ) : (
+                <span className="text-[9px] text-[--muted-foreground]/40">{t.ddl.unscheduled}</span>
+              )}
             </div>
-          ) : blocks.length > 0 ? (
-            <span className="text-[9px] text-[--muted-foreground]/70">{formatDuration(scheduledMin)}</span>
-          ) : (
-            <span className="text-[9px] text-[--muted-foreground]/40">{t.ddl.unscheduled}</span>
+
+            <button
+              type="button"
+              onClick={openEditor}
+              className={cn(
+                "grid place-items-center flex-shrink-0 h-8 w-8 p-0 rounded-xl border border-[var(--liquid-glass-border-soft)] leading-none",
+                "bg-[var(--liquid-glass-bg-soft)] text-[--muted-foreground]",
+                "hover:text-[--foreground] hover:bg-[var(--liquid-glass-hover-bg)] hover:-translate-y-px",
+                "active:translate-y-0 active:scale-[0.97]",
+                "shadow-[var(--liquid-glass-shadow-soft)]",
+                "transition-all duration-200 ease-out",
+              )}
+              title={t.taskDetail.editBtn}
+            >
+              <Pencil className="w-3.5 h-3.5 shrink-0" />
+            </button>
+          </div>
+
+          {(subTaskCount > 0 || expanded) && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                toggleExpanded()
+              }}
+              className="mt-1 flex w-full items-center gap-1 text-[10px] text-[--muted-foreground] hover:text-[--foreground] transition-colors"
+            >
+              {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              {t.taskDetail.subtasksCount(doneSubTaskCount, subTaskCount)}
+            </button>
+          )}
+
+          {expanded && (
+            <div data-task-subtasks-body="true">
+              <TaskSubtasks
+                taskId={task.id}
+                initialSubTasks={task.subTasks ?? []}
+                compact
+                showHeader={false}
+                className="mt-2"
+              />
+            </div>
           )}
         </div>
       </div>
@@ -207,7 +268,7 @@ function Section({
   allTags: Tag[]
   accent?: string
   startIndex?: number
-  onSelectTask?: (task: TaskWithRelations) => void
+  onSelectTask?: (task: TaskWithRelations, mode?: "view" | "edit") => void
 }) {
   const t = useT()
   if (tasks.length === 0) return null
@@ -235,7 +296,7 @@ export function DdlView({
 }: {
   tasks: TaskWithRelations[]
   allTags: Tag[]
-  onSelectTask?: (task: TaskWithRelations) => void
+  onSelectTask?: (task: TaskWithRelations, mode?: "view" | "edit") => void
 }) {
   const t = useT()
   const now = chinaNow()

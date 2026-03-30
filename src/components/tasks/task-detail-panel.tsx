@@ -1,7 +1,8 @@
 "use client"
 import { useState, useTransition, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createTimeBlock, deleteTimeBlock, updateTask, deleteTask, updateTimeBlock } from "@/lib/actions/tasks"
+import { format } from "date-fns"
+import { createAllDayBlock, createTimeBlock, deleteTimeBlock, updateTask, deleteTask, updateTimeBlock } from "@/lib/actions/tasks"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -9,9 +10,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TagChip } from "@/components/shared/tag-chip"
 import { cn, isOverdue, PRIORITY_COLORS, formatDate, toLocalDatetimeInput } from "@/lib/utils"
-import { X, Trash2, Loader2, AlertCircle, CalendarDays, CheckSquare, Tag as TagIcon, AlignLeft, Clock } from "lucide-react"
+import { X, Trash2, Loader2, AlertCircle, CalendarDays, CheckSquare, Tag as TagIcon, AlignLeft, Clock, Pencil } from "lucide-react"
 import { useT } from "@/contexts/locale-context"
 import type { Task, TaskTag, Tag, SubTask, TimeBlock } from "@prisma/client"
+import { TaskSubtasks } from "./task-subtasks"
 
 type TaskWithRelations = Task & {
   taskTags: (TaskTag & { tag: Tag })[]
@@ -22,6 +24,8 @@ type TaskWithRelations = Task & {
 interface TaskDetailPanelProps {
   task: TaskWithRelations
   allTags: Tag[]
+  initialMode?: "view" | "edit"
+  initialEditingBlockId?: string | null
   onClose: () => void
 }
 
@@ -55,11 +59,12 @@ function getDefaultScheduleFields() {
   }
 }
 
-export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps) {
+export function TaskDetailPanel({ task, allTags, initialMode = "view", initialEditingBlockId = null, onClose }: TaskDetailPanelProps) {
   const t = useT()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [isSchedulePending, startScheduleTransition] = useTransition()
+  const [mode, setMode] = useState<"view" | "edit">(initialMode)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -72,6 +77,7 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
   const defaults = getDefaultScheduleFields()
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null)
+  const [scheduleSubTaskId, setScheduleSubTaskId] = useState<string>("__main__")
   const [scheduleDate, setScheduleDate] = useState(defaults.date)
   const [scheduleStart, setScheduleStart] = useState(defaults.start)
   const [scheduleEnd, setScheduleEnd] = useState(defaults.end)
@@ -79,6 +85,9 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
   const scheduledBlocks = [...(task.timeBlocks ?? [])]
     .filter((block) => !block.isAllDay)
     .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
+  const selectedBlock = editingBlockId
+    ? (task.timeBlocks ?? []).find((item) => item.id === editingBlockId) ?? null
+    : null
 
   // Reset form when a different task is selected
   useEffect(() => {
@@ -90,10 +99,52 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
     setSelectedTags(task.taskTags.map(tt => tt.tagId))
     setConfirmDelete(false)
     setSaved(false)
+    setMode(initialMode)
     setScheduleOpen(false)
     setEditingBlockId(null)
+    setScheduleSubTaskId("__main__")
     setScheduleError("")
-  }, [task.id])
+  }, [task.id, initialMode])
+
+  useEffect(() => {
+    if (!initialEditingBlockId) return
+    const block = (task.timeBlocks ?? []).find((item) => item.id === initialEditingBlockId)
+    if (!block) return
+    setEditingBlockId(block.id)
+    setScheduleSubTaskId(block.subTaskId ?? "__main__")
+    if (initialMode === "edit") {
+      setMode("edit")
+      openScheduleEditor(block)
+    }
+  }, [initialEditingBlockId, task.id, initialMode])
+
+  const handleDeploymentTargetChange = (value: string) => {
+    if (!selectedBlock) return
+    setScheduleSubTaskId(value)
+    startScheduleTransition(async () => {
+      const nextSubTaskId = value === "__main__" ? null : value
+      await updateTimeBlock(
+        selectedBlock.id,
+        new Date(selectedBlock.startAt),
+        new Date(selectedBlock.endAt),
+        nextSubTaskId
+      )
+      const matchingAllDay = (task.timeBlocks ?? []).find(
+        (item) => item.isAllDay && toDateInput(item.startAt) === toDateInput(selectedBlock.startAt)
+      )
+      if (matchingAllDay) {
+        await updateTimeBlock(
+          matchingAllDay.id,
+          new Date(matchingAllDay.startAt),
+          new Date(matchingAllDay.endAt),
+          nextSubTaskId
+        )
+      } else {
+        await createAllDayBlock(task.id, toDateInput(selectedBlock.startAt), nextSubTaskId ?? undefined)
+      }
+      router.refresh()
+    })
+  }
 
   const PRIORITY_OPTIONS = [
     { value: "LOW", label: t.tasks.priorityLow },
@@ -136,12 +187,14 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
       setScheduleDate(toDateInput(block.startAt))
       setScheduleStart(toTimeInput(block.startAt))
       setScheduleEnd(toTimeInput(block.endAt))
+      setScheduleSubTaskId(block.subTaskId ?? "__main__")
     } else {
       const nextDefaults = getDefaultScheduleFields()
       setEditingBlockId(null)
       setScheduleDate(nextDefaults.date)
       setScheduleStart(nextDefaults.start)
       setScheduleEnd(nextDefaults.end)
+      setScheduleSubTaskId("__main__")
     }
     setScheduleError("")
     setScheduleOpen(true)
@@ -161,7 +214,7 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
 
     startScheduleTransition(async () => {
       if (editingBlockId) {
-        await updateTimeBlock(editingBlockId, startAt, endAt)
+        await updateTimeBlock(editingBlockId, startAt, endAt, scheduleSubTaskId === "__main__" ? null : scheduleSubTaskId)
       } else {
         await createTimeBlock(task.id, startAt, endAt)
       }
@@ -183,12 +236,21 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
 
   return (
     <div className={cn(
-      "glass-flat-panel panel-flat-surface flex flex-col h-full rounded-3xl overflow-hidden",
+      "glass-flat-panel panel-flat-surface flex flex-col h-full max-h-full min-h-0 rounded-3xl overflow-hidden",
     )}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--liquid-glass-border-soft)] flex-shrink-0">
-        <span className="text-sm font-semibold text-[--foreground]/80">{t.taskDetail.editTitle}</span>
+        <span className="text-sm font-semibold text-[--foreground]/80">{mode === "edit" ? t.taskDetail.editTitle : t.taskDetail.viewTitle}</span>
         <div className="flex items-center gap-1">
+          {mode === "view" && (
+            <button
+              onClick={() => setMode("edit")}
+              className="p-1.5 rounded-lg text-[--muted-foreground] hover:text-[--foreground] hover:bg-[var(--liquid-glass-bg-soft)] transition-colors"
+              title={t.taskDetail.editBtn}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
           {!confirmDelete ? (
             <button
               onClick={() => setConfirmDelete(true)}
@@ -218,7 +280,74 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3.5">
+        {mode === "view" ? (
+          <div className="space-y-4">
+            <div>
+              <p className={cn("text-base font-medium", task.status === "DONE" && "line-through text-[--muted-foreground]")}>
+                {task.title}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", status === "DONE" ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" : status === "DOING" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300")}>
+                {status}
+              </span>
+              <span className={cn("text-xs px-2 py-0.5 rounded-full bg-[--muted] font-medium", PRIORITY_COLORS[priority])}>
+                {priority}
+              </span>
+              {dueAt && (
+                <span className={cn("text-xs px-2 py-0.5 rounded-full", overdue ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-[var(--liquid-glass-chip-bg)] text-[--muted-foreground] border border-[var(--liquid-glass-border-soft)]")}>
+                  {dueAt}
+                </span>
+              )}
+            </div>
+
+            {task.description && (
+              <div className="space-y-1">
+                <Label className="text-xs text-[--muted-foreground] flex items-center gap-1">
+                  <AlignLeft className="w-3 h-3" />{t.taskDetail.notesLabel}
+                </Label>
+                <p className="text-sm text-[--foreground] bg-[--muted]/50 rounded-lg p-3 whitespace-pre-wrap">{task.description}</p>
+              </div>
+            )}
+
+            {task.taskTags.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-[--muted-foreground] flex items-center gap-1">
+                  <TagIcon className="w-3 h-3" />{t.taskDetail.tagsLabel}
+                </Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {task.taskTags.map(({ tag }) => (
+                    <TagChip key={tag.id} name={tag.name} color={tag.color} size="sm" />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedBlock && task.subTasks.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-[--muted-foreground] flex items-center gap-1">
+                  <Clock className="w-3 h-3" />部署对象
+                </Label>
+                <Select value={scheduleSubTaskId} onValueChange={handleDeploymentTargetChange}>
+                  <SelectTrigger className="h-8 text-xs border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-input-bg)]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__main__">{task.title}</SelectItem>
+                    {task.subTasks.map((subTask) => (
+                      <SelectItem key={subTask.id} value={subTask.id}>{subTask.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <TaskSubtasks taskId={task.id} initialSubTasks={task.subTasks} />
+          </div>
+        ) : (
+          <>
         {/* Title */}
         <Input
           value={title}
@@ -278,30 +407,58 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
           </div>
           {scheduledBlocks.length > 0 ? (
             <div className="space-y-2">
-              {scheduledBlocks.map((block) => (
+              {scheduledBlocks.map((block, index) => (
                 <div
                   key={block.id}
-                  className="rounded-xl border border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-bg-soft)] px-3 py-2"
+                  className={cn(
+                    "overflow-hidden rounded-2xl border shadow-[var(--liquid-glass-shadow-soft)]",
+                    index % 2 === 0
+                      ? "border-[var(--liquid-glass-border)] bg-[var(--liquid-glass-bg)]"
+                      : "border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-bg-soft)]"
+                  )}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">
-                        {new Date(block.startAt).toLocaleDateString(undefined, { month: "numeric", day: "numeric", weekday: "short" })}
+                  <div
+                    className={cn(
+                      "flex items-start gap-3 px-3 py-3",
+                      index % 2 === 0 ? "bg-white/45 dark:bg-white/5" : "bg-[#C96444]/[0.04] dark:bg-white/5"
+                    )}
+                  >
+                    <div className="w-16 flex-shrink-0 rounded-xl border border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-bg)] px-2 py-2 text-center shadow-[var(--liquid-glass-shadow-soft)]">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-[--muted-foreground]">
+                        {format(new Date(block.startAt), "EEE")}
                       </p>
-                      <p className="text-xs text-[--muted-foreground] mt-1">
-                        {new Date(block.startAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        {" – "}
-                        {new Date(block.endAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      <p className="mt-1 text-base font-semibold leading-none tabular-nums">
+                        {format(new Date(block.startAt), "M/d")}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => openScheduleEditor(block)}>
+                    <div className="min-w-0 flex-1 space-y-1 pt-0.5">
+                      <p className="text-sm font-medium whitespace-nowrap tabular-nums leading-none">
+                        {format(new Date(block.startAt), "h:mm a")} - {format(new Date(block.endAt), "h:mm a")}
+                      </p>
+                      {block.subTaskId && (
+                        <p className="inline-flex max-w-full rounded-full border border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-bg)] px-2 py-1 text-[11px] text-[--muted-foreground] truncate shadow-[var(--liquid-glass-shadow-soft)]">
+                          子任务 · {task.subTasks.find((subTask) => subTask.id === block.subTaskId)?.title ?? "Subtask"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-1.5 border-t border-[var(--liquid-glass-border-soft)] bg-black/[0.02] px-3 py-2.5 dark:bg-white/[0.03]">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs whitespace-nowrap border border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-bg)] hover:bg-[var(--liquid-glass-hover-bg)]"
+                      onClick={() => openScheduleEditor(block)}
+                    >
                         {t.taskDetail.editScheduleBtn}
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-[--destructive]" onClick={() => handleScheduleDelete(block.id)}>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs text-[--destructive] whitespace-nowrap border border-red-200/70 bg-red-50/80 hover:bg-red-100/90 dark:border-red-900/40 dark:bg-red-950/20 dark:hover:bg-red-950/35"
+                      onClick={() => handleScheduleDelete(block.id)}
+                    >
                         {t.taskDetail.deleteScheduleBtn}
-                      </Button>
-                    </div>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -319,17 +476,17 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
                   <Label>{t.taskDetail.dateField}</Label>
                   <Input type="date" value={scheduleDate} onChange={(event) => setScheduleDate(event.target.value)} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>{t.taskDetail.startField}</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>{t.taskDetail.startField}</Label>
                     <Input type="time" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)} />
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t.taskDetail.endField}</Label>
-                    <Input type="time" value={scheduleEnd} onChange={(event) => setScheduleEnd(event.target.value)} />
+                      <Input type="time" value={scheduleEnd} onChange={(event) => setScheduleEnd(event.target.value)} />
+                    </div>
                   </div>
                 </div>
-              </div>
               {scheduleError && <p className="text-xs text-[--destructive]">{scheduleError}</p>}
               <div className="flex flex-col gap-2">
                 <Button type="button" disabled={isSchedulePending} onClick={handleScheduleSave}>
@@ -386,51 +543,38 @@ export function TaskDetailPanel({ task, allTags, onClose }: TaskDetailPanelProps
           </div>
         )}
 
-        {/* Subtasks (read-only) */}
-        {task.subTasks.length > 0 && (
-          <div className="space-y-1">
-            <Label className="text-xs text-[--muted-foreground] flex items-center gap-1">
-              <CheckSquare className="w-3 h-3" />
-              {t.taskDetail.subtasksLabel(task.subTasks.filter(s => s.done).length, task.subTasks.length)}
-            </Label>
-            <div className="space-y-1">
-              {task.subTasks.map(sub => (
-                <div
-                  key={sub.id}
-                  className={cn(
-                    "flex items-center gap-2 text-xs px-2 py-1 rounded-lg border border-[var(--liquid-glass-border-soft)] bg-[var(--liquid-glass-bg-soft)]",
-                    sub.done && "opacity-50"
-                  )}
-                >
-                  <div className={cn("w-3 h-3 rounded border flex items-center justify-center flex-shrink-0", sub.done ? "bg-[--primary] border-[--primary] text-[--primary-foreground]" : "border-[--border]")}>
-                    {sub.done && <span className="text-[8px]">✓</span>}
-                  </div>
-                  <span className={cn(sub.done && "line-through text-[--muted-foreground]")}>{sub.title}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         <p className="text-[10px] text-[--muted-foreground]/50">
           {t.taskDetail.createdAt(formatDate(task.createdAt))}
         </p>
+          </>
+        )}
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t border-[var(--liquid-glass-border-soft)] flex-shrink-0">
-        <Button
-          className="w-full h-8 text-sm"
-          disabled={isPending || !title.trim()}
-          onClick={handleSave}
-        >
-          {isPending
-            ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            : saved
-            ? "✓ "
-            : null}
-          {saved ? "已保存" : t.taskDetail.saveBtn}
-        </Button>
+      <div className="px-4 py-3 border-t border-[var(--liquid-glass-border-soft)] flex-shrink-0 bg-[var(--liquid-glass-bg)]">
+        {mode === "edit" ? (
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              className="flex-1 h-8 text-sm"
+              onClick={() => setMode("view")}
+            >
+              {t.taskDetail.cancelBtn}
+            </Button>
+            <Button
+              className="flex-1 h-8 text-sm"
+              disabled={isPending || !title.trim()}
+              onClick={handleSave}
+            >
+              {isPending
+                ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                : saved
+                ? "✓ "
+                : null}
+              {saved ? "已保存" : t.taskDetail.saveBtn}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 "use client"
-import { useState, useTransition } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { createTimeBlock, deleteTimeBlock, updateTask, deleteTask, updateTimeBlock } from "@/lib/actions/tasks"
 import {
@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { useT } from "@/contexts/locale-context"
 import type { Task, TaskTag, Tag, SubTask, TimeBlock } from "@prisma/client"
+import { TaskSubtasks } from "./task-subtasks"
 
 type TaskWithRelations = Task & {
   taskTags: (TaskTag & { tag: Tag })[]
@@ -35,6 +36,7 @@ interface TaskDetailDialogProps {
   task: TaskWithRelations
   allTags: Tag[]
   open: boolean
+  initialEditingBlockId?: string | null
   onOpenChange: (open: boolean) => void
 }
 
@@ -68,7 +70,7 @@ function buildLocalDate(date: string, time: string) {
   return new Date(`${date}T${time}:00`)
 }
 
-export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDetailDialogProps) {
+export function TaskDetailDialog({ task, allTags, open, initialEditingBlockId = null, onOpenChange }: TaskDetailDialogProps) {
   const t = useT()
   const router = useRouter()
   const [mode, setMode] = useState<"view" | "edit">("view")
@@ -84,6 +86,7 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
   const [selectedTags, setSelectedTags] = useState<string[]>(task.taskTags.map((tt) => tt.tagId))
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null)
+  const [scheduleSubTaskId, setScheduleSubTaskId] = useState<string>("__main__")
   const defaults = getDefaultScheduleFields()
   const [scheduleDate, setScheduleDate] = useState(defaults.date)
   const [scheduleStart, setScheduleStart] = useState(defaults.start)
@@ -149,12 +152,14 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
       setScheduleDate(toDateInput(block.startAt))
       setScheduleStart(toTimeInput(block.startAt))
       setScheduleEnd(toTimeInput(block.endAt))
+      setScheduleSubTaskId(block.subTaskId ?? "__main__")
     } else {
       const nextDefaults = getDefaultScheduleFields()
       setEditingBlockId(null)
       setScheduleDate(nextDefaults.date)
       setScheduleStart(nextDefaults.start)
       setScheduleEnd(nextDefaults.end)
+      setScheduleSubTaskId("__main__")
     }
     setScheduleError("")
     setScheduleOpen(true)
@@ -174,7 +179,7 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
 
     startScheduleTransition(async () => {
       if (editingBlockId) {
-        await updateTimeBlock(editingBlockId, startAt, endAt)
+        await updateTimeBlock(editingBlockId, startAt, endAt, scheduleSubTaskId === "__main__" ? null : scheduleSubTaskId)
       } else {
         await createTimeBlock(task.id, startAt, endAt)
       }
@@ -208,6 +213,14 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
       setScheduleError("")
     }, 200)
   }
+
+  useEffect(() => {
+    if (!open || !initialEditingBlockId) return
+    const block = (task.timeBlocks ?? []).find((item) => item.id === initialEditingBlockId)
+    if (!block) return
+    setMode("edit")
+    openScheduleEditor(block)
+  }, [open, initialEditingBlockId, task.id])
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -299,6 +312,11 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
                             {" – "}
                             {new Date(block.endAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </p>
+                          {block.subTaskId && (
+                            <p className="text-[11px] text-[--muted-foreground] mt-1">
+                              {task.subTasks.find((subTask) => subTask.id === block.subTaskId)?.title ?? "Subtask"}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Button size="sm" variant="ghost" className="h-9 px-3 text-xs" onClick={() => openScheduleEditor(block)}>
@@ -371,23 +389,7 @@ export function TaskDetailDialog({ task, allTags, open, onOpenChange }: TaskDeta
               </div>
             )}
 
-            {task.subTasks.length > 0 && (
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium text-[--muted-foreground] flex items-center gap-1">
-                  <CheckSquare className="w-3.5 h-3.5" />{t.taskDetail.subtasksLabel(task.subTasks.filter(s => s.done).length, task.subTasks.length)}
-                </p>
-                <div className="space-y-1">
-                  {task.subTasks.map((sub) => (
-                    <div key={sub.id} className={cn("flex items-center gap-2 text-sm", sub.done && "opacity-50")}>
-                      <div className={cn("w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center text-[10px]", sub.done ? "bg-[--primary] border-[--primary] text-[--primary-foreground]" : "border-[--border]")}>
-                        {sub.done && "✓"}
-                      </div>
-                      <span className={cn(sub.done && "line-through text-[--muted-foreground]")}>{sub.title}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <TaskSubtasks taskId={task.id} initialSubTasks={task.subTasks} />
 
             <p className="text-xs text-[--muted-foreground]">
               {t.taskDetail.createdAt(formatDate(task.createdAt))}

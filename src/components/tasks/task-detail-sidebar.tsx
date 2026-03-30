@@ -15,6 +15,7 @@ import {
 import { useT } from "@/contexts/locale-context"
 import type { TaskWithRelations } from "./task-item"
 import type { Tag } from "@prisma/client"
+import { TaskSubtasks } from "./task-subtasks"
 
 const STATUS_BADGE_COLOR: Record<string, string> = {
   TODO: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
@@ -198,23 +199,7 @@ export function TaskDetailSidebar({ task, allTags, onClose }: Props) {
                 </div>
               )}
 
-              {task.subTasks.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-[--muted-foreground] flex items-center gap-1">
-                    <CheckSquare className="w-3.5 h-3.5" />{t.taskDetail.subtasksLabel(task.subTasks.filter(s => s.done).length, task.subTasks.length)}
-                  </p>
-                  <div className="space-y-1">
-                    {task.subTasks.map((sub) => (
-                      <div key={sub.id} className={cn("flex items-center gap-2 text-sm", sub.done && "opacity-50")}>
-                        <div className={cn("w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center text-[10px]", sub.done ? "bg-[--primary] border-[--primary] text-[--primary-foreground]" : "border-[--border]")}>
-                          {sub.done && "✓"}
-                        </div>
-                        <span className={cn(sub.done && "line-through text-[--muted-foreground]")}>{sub.title}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <TaskSubtasks taskId={task.id} initialSubTasks={task.subTasks} />
 
               <p className="text-xs text-[--muted-foreground]">
                 {t.taskDetail.createdAt(formatDate(task.createdAt))}

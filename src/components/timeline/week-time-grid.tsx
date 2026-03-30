@@ -8,6 +8,8 @@ import { TaskDetailDialog } from "@/components/tasks/task-detail-dialog"
 import { createTimeBlock, updateTimeBlock, deleteTimeBlock, createAllDayBlock, deleteTimeBlocksByIds } from "@/lib/actions/tasks"
 import { X } from "lucide-react"
 import type { Task, TaskTag, Tag, SubTask, TimeBlock } from "@prisma/client"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 type TaskWithRelations = Task & {
   taskTags: (TaskTag & { tag: Tag })[]
@@ -117,7 +119,7 @@ function BlockOnGrid({
   localOverride?: LocalBlock
   onBlockMove: (blockId: string, start: Date, end: Date) => void
   onBlockDelete: (blockId: string) => void
-  onSelectTask?: (task: TaskWithRelations) => void
+  onSelectTask?: (task: TaskWithRelations, options?: { blockId?: string | null; mode?: "view" | "edit" }) => void
 }) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -135,6 +137,7 @@ function BlockOnGrid({
   const top      = (startMin / 60) * HOUR_HEIGHT
   const height   = Math.max((dur / 60) * HOUR_HEIGHT, 28)
   const showTime = height >= 44
+  const subTaskTitle = block.subTaskId ? task.subTasks?.find((subTask) => subTask.id === block.subTaskId)?.title : null
 
   useEffect(() => {
     const syncTheme = () => setIsDark(document.documentElement.classList.contains("dark"))
@@ -202,7 +205,7 @@ function BlockOnGrid({
       window.removeEventListener("pointerup", onUp)
       setIsDragging(false)
       el.style.transform = ""
-      if (!wasDragged.current) { if (onSelectTask) { onSelectTask(task) } else { setDialogOpen(true) }; return }
+      if (!wasDragged.current) { if (onSelectTask) { onSelectTask(task, { blockId: block.id, mode: "view" }) } else { setDialogOpen(true) }; return }
       const newStartMin = parseInt(el.dataset.curStart  ?? String(origStartMin))
       const targetCol   = parseInt(el.dataset.curTarget ?? String(dayIndex))
       const newEndMin   = newStartMin + origDur
@@ -298,7 +301,7 @@ function BlockOnGrid({
           <div className="flex items-start gap-1">
             <span className={cn("mt-[3px] w-1.5 h-1.5 rounded-full flex-shrink-0", P_DOT[task.priority])} />
             <p className={cn("text-[11px] font-semibold leading-tight truncate", P_TEXT[task.priority])}>
-              {task.title}
+              {subTaskTitle ? `${task.title} / ${subTaskTitle}` : task.title}
             </p>
           </div>
           <p ref={timeLabelRef} className={cn("text-[10px] opacity-60 pl-2.5", P_TEXT[task.priority], !showTime && "hidden")}>
@@ -319,6 +322,7 @@ function BlockOnGrid({
         <TaskDetailDialog
           task={{ ...task, subTasks: task.subTasks ?? [] }}
           allTags={allTags}
+          initialEditingBlockId={block.id}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
         />
@@ -328,15 +332,17 @@ function BlockOnGrid({
 }
 
 /* ── Day chip (in per-day task row) ── */
-function DayChip({ task, day, allTags, onDragStart, onRemove, onSelectTask }: {
+function DayChip({ task, day, allTags, onDragStart, onRemove, onSelectTask, subTaskId }: {
   task: TaskWithRelations
   day: Date
   allTags: Tag[]
-  onDragStart: (task: TaskWithRelations, e: React.PointerEvent) => void
+  onDragStart: (task: TaskWithRelations, e: React.PointerEvent, sourceSubTaskId?: string | null) => void
   onRemove: () => void
-  onSelectTask?: (task: TaskWithRelations) => void
+  onSelectTask?: (task: TaskWithRelations, options?: { blockId?: string | null; mode?: "view" | "edit" }) => void
+  subTaskId?: string | null
 }) {
   const [dialogOpen, setDialogOpen] = useState(false)
+  const subTaskTitle = subTaskId ? task.subTasks?.find((subTask) => subTask.id === subTaskId)?.title : null
   return (
     <>
       <div
@@ -348,12 +354,12 @@ function DayChip({ task, day, allTags, onDragStart, onRemove, onSelectTask }: {
           task.status === "DONE" && "opacity-40 line-through",
         )}
         style={{ touchAction: "none", userSelect: "none" }}
-        onPointerDown={e => { e.preventDefault(); onDragStart(task, e) }}
-        onClick={() => onSelectTask ? onSelectTask(task) : setDialogOpen(true)}
+        onPointerDown={e => { e.preventDefault(); onDragStart(task, e, subTaskId) }}
+        onClick={() => onSelectTask ? onSelectTask(task, { mode: "view" }) : setDialogOpen(true)}
         title={task.title}
       >
         <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", P_DOT[task.priority])} />
-        <span className="flex-1 truncate leading-snug">{task.title}</span>
+        <span className="flex-1 truncate leading-snug">{subTaskTitle ? `${task.title} / ${subTaskTitle}` : task.title}</span>
         <button
           className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity flex-shrink-0 hover:text-[--destructive]"
           onPointerDown={e => e.stopPropagation()}
@@ -377,7 +383,7 @@ function DayChip({ task, day, allTags, onDragStart, onRemove, onSelectTask }: {
 /* ── All Tasks sidebar card ── */
 function TaskCard({ task, onDragStart, onDetailOpen }: {
   task: TaskWithRelations
-  onDragStart: (task: TaskWithRelations, e: React.PointerEvent) => void
+  onDragStart: (task: TaskWithRelations, e: React.PointerEvent, sourceSubTaskId?: string | null) => void
   onDetailOpen: () => void
 }) {
   const scheduledMin = totalBlockMinutes((task.timeBlocks ?? []).filter(b => !b.isAllDay))
@@ -426,9 +432,9 @@ function TaskPanel({
 }: {
   tasks: TaskWithRelations[]
   allTags: Tag[]
-  onChipDragStart: (task: TaskWithRelations, e: React.PointerEvent) => void
+  onChipDragStart: (task: TaskWithRelations, e: React.PointerEvent, sourceSubTaskId?: string | null) => void
   isMobile: boolean
-  onSelectTask?: (task: TaskWithRelations) => void
+  onSelectTask?: (task: TaskWithRelations, options?: { blockId?: string | null; mode?: "view" | "edit" }) => void
 }) {
   const t = useT()
   const [sel, setSel] = useState<TaskWithRelations | null>(null)
@@ -459,7 +465,7 @@ function TaskPanel({
                 "text-xs px-2.5 py-1.5 rounded-lg border flex-shrink-0 active:scale-95 transition-all",
                 P_BG[tk.priority], DARK_TASK_SURFACE, P_TEXT[tk.priority],
               )}
-              onClick={() => onSelectTask ? onSelectTask(tk) : (setSel(tk), setOpen(true))}
+              onClick={() => onSelectTask ? onSelectTask(tk, { mode: "view" }) : (setSel(tk), setOpen(true))}
             >
               <span className={cn("inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle -mt-px", P_DOT[tk.priority])} />
               {tk.title}
@@ -498,7 +504,7 @@ function TaskPanel({
             key={tk.id}
             task={tk}
             onDragStart={onChipDragStart}
-            onDetailOpen={() => onSelectTask ? onSelectTask(tk) : (setSel(tk), setOpen(true))}
+            onDetailOpen={() => onSelectTask ? onSelectTask(tk, { mode: "view" }) : (setSel(tk), setOpen(true))}
           />
         ))}
       </div>
@@ -545,16 +551,22 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
   allTags: Tag[]
   weekDays: Date[]
   isMobile?: boolean
-  onSelectTask?: (task: TaskWithRelations) => void
+  onSelectTask?: (task: TaskWithRelations, options?: { blockId?: string | null; mode?: "view" | "edit" }) => void
 }) {
   const t = useT()
   const [localBlocks, setLocalBlocks] = useState<Record<string, LocalBlock>>({})
   const [pendingBlocks, setPendingBlocks] = useState<Array<{
-    tempId: string; taskId: string; startAt: Date; endAt: Date
+    tempId: string; taskId: string; startAt: Date; endAt: Date; subTaskId?: string | null
   }>>([])
   const [pendingDayTasks, setPendingDayTasks] = useState<Array<{
-    tempId: string; taskId: string; dayIdx: number
+    tempId: string; taskId: string; dayIdx: number; subTaskId?: string | null
   }>>([])
+  const [dropChoice, setDropChoice] = useState<{
+    task: TaskWithRelations
+    baseDay: Date
+    min: number
+    isChipDrop: boolean
+  } | null>(null)
 
   // Remove pending blocks once the real server data arrives (avoids flash gap)
   useEffect(() => {
@@ -563,7 +575,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
       if (!task) return false
       const realExists = (task.timeBlocks ?? []).some(b => {
         const diff = Math.abs(new Date(b.startAt).getTime() - pb.startAt.getTime())
-        return !b.isAllDay && diff < 60_000
+        return !b.isAllDay && diff < 60_000 && (pb.subTaskId ? b.subTaskId === pb.subTaskId : !b.subTaskId)
       })
       return !realExists
     }))
@@ -574,7 +586,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
       if (!task) return false
       const dayChina = toChina(day)
       const realExists = (task.timeBlocks ?? []).some(
-        b => b.isAllDay && isSameDay(toChina(new Date(b.startAt)), dayChina)
+        b => b.isAllDay && isSameDay(toChina(new Date(b.startAt)), dayChina) && (pt.subTaskId ? b.subTaskId === pt.subTaskId : !b.subTaskId)
       )
       return !realExists
     }))
@@ -637,6 +649,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
             task,
             block: {
               id: pb.tempId, taskId: pb.taskId,
+              subTaskId: pb.subTaskId ?? null,
               startAt: pb.startAt, endAt: pb.endAt,
               isAllDay: false,
               createdAt: new Date(), updatedAt: new Date(),
@@ -648,25 +661,30 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
     return results
   }
 
-  /* Unique tasks assigned to a day (allDay OR timed blocks) */
-  function getUniqueTasksForDay(day: Date): TaskWithRelations[] {
+  function getAllDayAssignmentsForDay(day: Date): Array<{ key: string; task: TaskWithRelations; subTaskId?: string | null }> {
     const dayChina = toChina(day)
-    const seen = new Set<string>()
-    const result: TaskWithRelations[] = []
+    const result: Array<{ key: string; task: TaskWithRelations; subTaskId?: string | null }> = []
     for (const task of tasks) {
-      if (seen.has(task.id)) continue
-      const hasBlock = (task.timeBlocks ?? []).some(b => {
-        const start = localBlocks[b.id]?.startAt ?? new Date(b.startAt)
-        return isSameDay(toChina(start), dayChina)
-      })
-      if (hasBlock) { seen.add(task.id); result.push(task) }
+      for (const block of task.timeBlocks ?? []) {
+        const start = localBlocks[block.id]?.startAt ?? new Date(block.startAt)
+        if (block.isAllDay && isSameDay(toChina(start), dayChina)) {
+          result.push({ key: block.id, task, subTaskId: block.subTaskId ?? null })
+        }
+      }
     }
-    // pending timed blocks
     for (const pb of pendingBlocks) {
-      if (seen.has(pb.taskId)) continue
-      if (isSameDay(toChina(pb.startAt), dayChina)) {
+      if (isSameDay(toChina(pb.startAt), dayChina) && pb.endAt.getTime() === pb.startAt.getTime()) {
         const task = tasks.find(t => t.id === pb.taskId)
-        if (task) { seen.add(task.id); result.push(task) }
+        if (task) {
+          result.push({ key: pb.tempId, task, subTaskId: pb.subTaskId ?? null })
+        }
+      }
+    }
+    for (const pending of pendingDayTasks) {
+      if (pending.dayIdx !== weekDays.findIndex((d) => isSameDay(d, day))) continue
+      const task = tasks.find((item) => item.id === pending.taskId)
+      if (task) {
+        result.push({ key: pending.tempId, task, subTaskId: pending.subTaskId ?? null })
       }
     }
     return result
@@ -685,15 +703,70 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
   }, [])
 
   /* Remove a task from a day's chip area (deletes all its blocks on that day) */
-  const onRemoveFromDay = useCallback(async (task: TaskWithRelations, day: Date) => {
+  const onRemoveFromDay = useCallback(async (task: TaskWithRelations, day: Date, subTaskId?: string | null) => {
     const dayChina = toChina(day)
     const blockIds = (task.timeBlocks ?? [])
-      .filter(b => isSameDay(toChina(new Date(b.startAt)), dayChina))
+      .filter(b => b.isAllDay && isSameDay(toChina(new Date(b.startAt)), dayChina) && (subTaskId ? b.subTaskId === subTaskId : !b.subTaskId))
       .map(b => b.id)
     if (blockIds.length > 0) {
       try { await deleteTimeBlocksByIds(blockIds) } catch {}
     }
   }, [])
+
+  const hasDayAssignment = useCallback((task: TaskWithRelations, day: Date, subTaskId?: string | null) => {
+    const dayChina = toChina(day)
+    const realExists = (task.timeBlocks ?? []).some((block) =>
+      block.isAllDay &&
+      isSameDay(toChina(new Date(block.startAt)), dayChina) &&
+      (subTaskId ? block.subTaskId === subTaskId : !block.subTaskId)
+    )
+
+    if (realExists) return true
+
+    const dayIdx = weekDays.findIndex((item) => isSameDay(item, day))
+    return pendingDayTasks.some((pending) =>
+      pending.taskId === task.id &&
+      pending.dayIdx === dayIdx &&
+      (subTaskId ? pending.subTaskId === subTaskId : !pending.subTaskId)
+    )
+  }, [pendingDayTasks, weekDays])
+
+  const completeDrop = useCallback((task: TaskWithRelations, subTaskId: string | null, baseDay: Date, min: number, isChipDrop: boolean) => {
+    const ensureDayAssignment = () => {
+      if (hasDayAssignment(task, baseDay, subTaskId)) return
+      const tempId = `pending-day-${Date.now()}`
+      const dayIdx = weekDays.findIndex((day) => isSameDay(day, baseDay))
+      setPendingDayTasks(prev => [...prev, { tempId, taskId: task.id, dayIdx, subTaskId }])
+      return { tempId, dayIdx }
+    }
+
+    if (isChipDrop) {
+      const pending = ensureDayAssignment()
+      if (!pending) return
+      createAllDayBlock(task.id, format(baseDay, "yyyy-MM-dd"), subTaskId ?? undefined).catch(() => {
+        setPendingDayTasks(prev => prev.filter((item) => item.tempId !== pending.tempId))
+      })
+      return
+    }
+
+    const newStart = applyMin(baseDay, min)
+    const newEnd = applyMin(baseDay, min + DEFAULT_DUR)
+    const tempId = `pending-${Date.now()}`
+    setPendingBlocks(prev => [...prev, { tempId, taskId: task.id, startAt: newStart, endAt: newEnd, subTaskId }])
+    const pendingDay = ensureDayAssignment()
+    createTimeBlock(task.id, newStart, newEnd, subTaskId ?? undefined).then((block) => {
+      if (pendingDay) {
+        createAllDayBlock(task.id, format(baseDay, "yyyy-MM-dd"), subTaskId ?? undefined, block.id).catch(() => {
+          setPendingDayTasks(prev => prev.filter((item) => item.tempId !== pendingDay.tempId))
+        })
+      }
+    }).catch(() => {
+      setPendingBlocks(prev => prev.filter(pb => pb.tempId !== tempId))
+      if (pendingDay) {
+        setPendingDayTasks(prev => prev.filter((item) => item.tempId !== pendingDay.tempId))
+      }
+    })
+  }, [hasDayAssignment, weekDays])
 
   /* Determine drop target: chip row or time grid */
   const computeDrop = useCallback((cx: number, cy: number) => {
@@ -724,7 +797,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
   }, [])
 
   /* Drag from panel/chip to create a new block */
-  const startPanelDrag = useCallback((task: TaskWithRelations, e: React.PointerEvent) => {
+  const startPanelDrag = useCallback((task: TaskWithRelations, e: React.PointerEvent, sourceSubTaskId?: string | null) => {
     e.preventDefault()
     let didDrag = false
     const startX = e.clientX
@@ -759,23 +832,20 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
 
       const baseDay = weekDays[col]
 
+      if (sourceSubTaskId) {
+        completeDrop(task, sourceSubTaskId, baseDay, min, isChipDrop)
+        return
+      }
+
+      if ((task.subTasks ?? []).length > 0) {
+        setDropChoice({ task, baseDay, min, isChipDrop })
+        return
+      }
+
       if (isChipDrop) {
-        // Add task to day chip row (allDay block)
-        if (getUniqueTasksForDay(baseDay).some(tk => tk.id === task.id)) return
-        const tempId = `pending-day-${Date.now()}`
-        setPendingDayTasks(prev => [...prev, { tempId, taskId: task.id, dayIdx: col }])
-        createAllDayBlock(task.id, format(baseDay, "yyyy-MM-dd")).catch(() => {
-          setPendingDayTasks(prev => prev.filter(p => p.tempId !== tempId))
-        })
+        completeDrop(task, null, baseDay, min, true)
       } else {
-        // Add timed block to time grid
-        const newStart = applyMin(baseDay, min)
-        const newEnd   = applyMin(baseDay, min + DEFAULT_DUR)
-        const tempId = `pending-${Date.now()}`
-        setPendingBlocks(prev => [...prev, { tempId, taskId: task.id, startAt: newStart, endAt: newEnd }])
-        createTimeBlock(task.id, newStart, newEnd).catch(() => {
-          setPendingBlocks(prev => prev.filter(pb => pb.tempId !== tempId))
-        })
+        completeDrop(task, null, baseDay, min, false)
       }
     }
 
@@ -942,9 +1012,7 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
               <p className="text-[8px] text-[--muted-foreground]/30 font-medium tracking-wider">{t.timeline.taskPanelTitle}</p>
             </div>
             {weekDays.map((day, i) => {
-              const dayTasks = getUniqueTasksForDay(day)
-              const dayTaskIds = new Set(dayTasks.map(t => t.id))
-              const pendingForDay = pendingDayTasks.filter(p => p.dayIdx === i && !dayTaskIds.has(p.taskId))
+              const dayAssignments = getAllDayAssignmentsForDay(day)
               return (
                 <div
                   key={i}
@@ -955,32 +1023,18 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
                     "transition-colors duration-100",
                   )}
                 >
-                  {dayTasks.map(task => (
+                  {dayAssignments.map(({ key, task, subTaskId }) => (
                     <DayChip
-                      key={task.id}
+                      key={key}
                       task={task}
                       day={day}
                       allTags={allTags}
                       onDragStart={startPanelDrag}
-                      onRemove={() => onRemoveFromDay(task, day)}
+                      onRemove={() => onRemoveFromDay(task, day, subTaskId)}
                       onSelectTask={onSelectTask}
+                      subTaskId={subTaskId}
                     />
                   ))}
-                  {pendingForDay.map(p => {
-                    const task = tasks.find(t => t.id === p.taskId)
-                    if (!task) return null
-                    return (
-                      <DayChip
-                        key={p.tempId}
-                        task={task}
-                        day={day}
-                        allTags={allTags}
-                        onDragStart={startPanelDrag}
-                        onRemove={() => {}}
-                        onSelectTask={onSelectTask}
-                      />
-                    )
-                  })}
                 </div>
               )
             })}
@@ -1050,6 +1104,47 @@ export function WeekTimeGrid({ tasks, allTags, weekDays, isMobile = false, onSel
       </div>
 
       {ghost && <DragGhost task={ghost.task} x={ghost.x} y={ghost.y} dropTime={ghost.dropTime} dragOffX={ghost.dragOffX} dragOffY={ghost.dragOffY} />}
+
+      <Dialog open={!!dropChoice} onOpenChange={(open) => !open && setDropChoice(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.timeline.taskPanelTitle}</DialogTitle>
+          </DialogHeader>
+          {dropChoice && (
+            <div className="space-y-3">
+              <p className="text-sm text-[--muted-foreground]">
+                选择要部署的是主任务还是某个子任务。
+              </p>
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    completeDrop(dropChoice.task, null, dropChoice.baseDay, dropChoice.min, dropChoice.isChipDrop)
+                    setDropChoice(null)
+                  }}
+                >
+                  {dropChoice.task.title}
+                </Button>
+                {(dropChoice.task.subTasks ?? []).map((subTask) => (
+                  <div key={subTask.id} className="pl-6">
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        completeDrop(dropChoice.task, subTask.id, dropChoice.baseDay, dropChoice.min, dropChoice.isChipDrop)
+                        setDropChoice(null)
+                      }}
+                    >
+                      {subTask.title}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

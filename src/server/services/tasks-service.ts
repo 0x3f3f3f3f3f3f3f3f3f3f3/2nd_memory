@@ -229,9 +229,14 @@ export async function createTimeBlock(
     startAt: string
     endAt: string
     isAllDay?: boolean
+    subTaskId?: string | null
+    originTimeBlockId?: string | null
   },
 ) {
-  await getTask(userId, taskId)
+  const task = await getTask(userId, taskId)
+  if (input.subTaskId && !task.subTasks.some((subTask) => subTask.id === input.subTaskId)) {
+    throw badRequest("subTaskId does not belong to the selected task", "invalid_subtask_id")
+  }
   const startAt = new Date(input.startAt)
   const endAt = new Date(input.endAt)
   if (endAt < startAt) {
@@ -241,6 +246,8 @@ export async function createTimeBlock(
   return prisma.timeBlock.create({
     data: {
       taskId,
+      subTaskId: input.subTaskId ?? null,
+      originTimeBlockId: input.originTimeBlockId ?? null,
       startAt,
       endAt,
       isAllDay: input.isAllDay ?? false,
@@ -255,6 +262,7 @@ export async function updateTimeBlock(
     startAt?: string
     endAt?: string
     isAllDay?: boolean
+    subTaskId?: string | null
   },
 ) {
   const block = await prisma.timeBlock.findFirst({
@@ -272,6 +280,18 @@ export async function updateTimeBlock(
   if (endAt < startAt) {
     throw badRequest("endAt must be greater than startAt", "invalid_time_block_range")
   }
+  if (input.subTaskId) {
+    const subTask = await prisma.subTask.findFirst({
+      where: {
+        id: input.subTaskId,
+        taskId: block.taskId,
+        task: { userId },
+      },
+    })
+    if (!subTask) {
+      throw badRequest("subTaskId does not belong to the selected task", "invalid_subtask_id")
+    }
+  }
 
   return prisma.timeBlock.update({
     where: { id },
@@ -279,6 +299,7 @@ export async function updateTimeBlock(
       ...(input.startAt !== undefined ? { startAt } : {}),
       ...(input.endAt !== undefined ? { endAt } : {}),
       ...(input.isAllDay !== undefined ? { isAllDay: input.isAllDay } : {}),
+      ...(input.subTaskId !== undefined ? { subTaskId: input.subTaskId ?? null } : {}),
     },
   })
 }
@@ -292,6 +313,42 @@ export async function deleteTimeBlock(userId: string, id: string) {
   })
   if (!block) {
     throw notFound("Time block not found", "time_block_not_found")
+  }
+
+  if (!block.isAllDay) {
+    const autoAssignments = await prisma.timeBlock.findMany({
+      where: {
+        taskId: block.taskId,
+        subTaskId: block.subTaskId,
+        isAllDay: true,
+        originTimeBlockId: block.id,
+      },
+    })
+
+    for (const assignment of autoAssignments) {
+      const sibling = await prisma.timeBlock.findFirst({
+        where: {
+          id: { not: block.id },
+          taskId: block.taskId,
+          subTaskId: block.subTaskId,
+          isAllDay: false,
+          startAt: {
+            gte: new Date(new Date(assignment.startAt).toISOString().slice(0, 10) + "T00:00:00.000Z"),
+            lt: new Date(new Date(assignment.startAt).toISOString().slice(0, 10) + "T23:59:59.999Z"),
+          },
+        },
+        orderBy: { startAt: "asc" },
+      })
+
+      if (sibling) {
+        await prisma.timeBlock.update({
+          where: { id: assignment.id },
+          data: { originTimeBlockId: sibling.id },
+        })
+      } else {
+        await prisma.timeBlock.delete({ where: { id: assignment.id } })
+      }
+    }
   }
   await prisma.timeBlock.delete({ where: { id } })
 }

@@ -19,6 +19,7 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import { TaskItem, type TaskWithRelations } from "./task-item"
 import { TaskDetailPanel } from "./task-detail-panel"
+import { TaskSidePanel } from "./task-side-panel"
 import { Input } from "@/components/ui/input"
 import { TagChip } from "@/components/shared/tag-chip"
 import { EmptyState } from "@/components/shared/empty-state"
@@ -167,8 +168,6 @@ export function TaskList({ tasks, tags }: { tasks: TaskWithRelations[]; tags: Ta
     onClosePanel()
   }, [onClosePanel])
 
-  const PANEL_W = 320
-
   return (
     <div className="flex gap-6 items-stretch min-w-0">
       <div className="flex-1 min-w-0" onClick={onMainAreaClick}>
@@ -245,35 +244,15 @@ export function TaskList({ tasks, tags }: { tasks: TaskWithRelations[]; tags: Ta
         </div>
       </div>
 
-      <div
-        className="flex-shrink-0 overflow-hidden self-stretch"
-        style={{
-          width: panelVisible ? PANEL_W : 0,
-          transition: "width 0.42s cubic-bezier(0.16, 1, 0.3, 1)",
-        }}
-      >
+      <TaskSidePanel mounted={!!selectedTask} visible={panelVisible}>
         {selectedTask && (
-          <div
-            className="sticky top-20"
-            style={{
-              width: PANEL_W,
-              height: "calc(100dvh - 6.5rem)",
-              opacity: panelVisible ? 1 : 0,
-              transform: panelVisible ? "translateX(0)" : "translateX(32px)",
-              transition: [
-                "opacity 0.42s cubic-bezier(0.16, 1, 0.3, 1)",
-                "transform 0.42s cubic-bezier(0.34, 1.15, 0.64, 1)",
-              ].join(", "),
-            }}
-          >
-            <TaskDetailPanel
-              task={selectedTask}
-              allTags={tags}
-              onClose={onClosePanel}
-            />
-          </div>
+          <TaskDetailPanel
+            task={selectedTask}
+            allTags={tags}
+            onClose={onClosePanel}
+          />
         )}
-      </div>
+      </TaskSidePanel>
     </div>
   )
 }

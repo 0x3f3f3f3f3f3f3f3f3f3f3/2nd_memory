@@ -92,15 +92,20 @@ model Task {
 model TimeBlock {
   id        String   @id @default(cuid())
   taskId    String
+  subTaskId String?
+  originTimeBlockId String?
   startAt   DateTime
   endAt     DateTime
   isAllDay  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task    Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  subTask SubTask? @relation(fields: [subTaskId], references: [id], onDelete: SetNull)
 
   @@index([taskId])
+  @@index([subTaskId])
+  @@index([originTimeBlockId])
   @@index([startAt])
 }
 
@@ -124,6 +129,7 @@ model SubTask {
   updatedAt DateTime @updatedAt
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  timeBlocks TimeBlock[]
 
   @@index([taskId])
 }

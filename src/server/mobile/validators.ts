@@ -46,6 +46,8 @@ export const timeBlockCreateSchema = z.object({
   startAt: z.string().datetime({ offset: true }),
   endAt: z.string().datetime({ offset: true }),
   isAllDay: z.boolean().default(false),
+  subTaskId: z.string().optional().nullable(),
+  originTimeBlockId: z.string().optional().nullable(),
 })
 
 export const timeBlockUpdateSchema = timeBlockCreateSchema.partial()

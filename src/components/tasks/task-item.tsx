@@ -3,9 +3,10 @@ import { useState, useTransition } from "react"
 import { cycleTaskStatus } from "@/lib/actions/tasks"
 import { TagChip } from "@/components/shared/tag-chip"
 import { cn, getDueLabel, isOverdue, PRIORITY_COLORS } from "@/lib/utils"
-import { CheckSquare, Square, Loader, ChevronDown, ChevronRight, Clock, AlertCircle } from "lucide-react"
+import { CheckSquare, Square, Loader, ChevronDown, ChevronRight, Clock, AlertCircle, Pencil } from "lucide-react"
 import { useT } from "@/contexts/locale-context"
 import type { Task, TaskTag, Tag, SubTask } from "@prisma/client"
+import { TaskSubtasks } from "./task-subtasks"
 
 export type TaskWithRelations = Task & {
   taskTags: (TaskTag & { tag: Tag })[]
@@ -63,7 +64,7 @@ export function TaskItem({ task, allTags = [], onSelect }: TaskItemProps) {
     <>
       <div
         data-task-list-trigger="true"
-        onClick={() => onSelect?.(task)}
+        onClick={() => task.subTasks.length > 0 && setExpanded((prev) => !prev)}
         className={cn(
           "group flex gap-3 p-3 rounded-xl border transition-all cursor-pointer card-hover",
           "backdrop-blur-md shadow-[var(--liquid-glass-shadow-soft)]",
@@ -91,6 +92,16 @@ export function TaskItem({ task, allTags = [], onSelect }: TaskItemProps) {
               {task.title}
             </span>
             <div className="flex items-center gap-1.5 flex-shrink-0">
+              {onSelect && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onSelect(task) }}
+                  className="text-[--muted-foreground] hover:text-[--foreground] transition-colors"
+                  title={t.taskDetail.editBtn}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
               {isDoing && (
                 <span className="text-xs text-amber-600 dark:text-amber-400 font-medium bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
                   {t.tasks.statusDoing}
@@ -127,13 +138,13 @@ export function TaskItem({ task, allTags = [], onSelect }: TaskItemProps) {
           )}
 
           {expanded && task.subTasks.length > 0 && (
-            <div className="mt-2 space-y-1 pl-2 border-l-2 border-[--border]">
-              {task.subTasks.map((sub) => (
-                <div key={sub.id} className={cn("text-xs", sub.done && "line-through text-[--muted-foreground]")}>
-                  {sub.title}
-                </div>
-              ))}
-            </div>
+            <TaskSubtasks
+              taskId={task.id}
+              initialSubTasks={task.subTasks}
+              compact
+              showHeader={false}
+              className="mt-2"
+            />
           )}
         </div>
       </div>

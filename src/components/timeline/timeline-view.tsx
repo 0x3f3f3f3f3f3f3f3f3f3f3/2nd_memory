@@ -1,5 +1,5 @@
 "use client"
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import {
   format, startOfWeek, addDays, isSameDay,
   eachDayOfInterval, addWeeks, subWeeks, addMonths, subMonths,
@@ -15,6 +15,7 @@ import { useT } from "@/contexts/locale-context"
 import { useIsMobile } from "@/hooks/use-is-mobile"
 import type { Task, TaskTag, Tag, SubTask, TimeBlock } from "@prisma/client"
 import { WeekTimeGrid } from "@/components/timeline/week-time-grid"
+import { TaskSidePanel } from "@/components/tasks/task-side-panel"
 
 type TaskWithRelations = Task & {
   taskTags: (TaskTag & { tag: Tag })[]
@@ -101,28 +102,72 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
 
   // Right panel state (same two-state system as DdlPageView)
   const [selectedTask, setSelectedTask] = useState<TaskWithRelations | null>(null)
+  const [selectedMode, setSelectedMode] = useState<"view" | "edit">("view")
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [panelVisible, setPanelVisible] = useState(false)
   const panelVisibleRef = useRef(false)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const selectedTaskRef = useRef<TaskWithRelations | null>(null)
+  const selectedModeRef = useRef<"view" | "edit">("view")
+  const selectedBlockIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    selectedTaskRef.current = selectedTask
+  }, [selectedTask])
+
+  useEffect(() => {
+    selectedModeRef.current = selectedMode
+  }, [selectedMode])
+
+  useEffect(() => {
+    selectedBlockIdRef.current = selectedBlockId
+  }, [selectedBlockId])
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    }
+  }, [])
 
   const onClosePanel = useCallback(() => {
     setPanelVisible(false)
     panelVisibleRef.current = false
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    closeTimerRef.current = setTimeout(() => setSelectedTask(null), 450)
+    closeTimerRef.current = setTimeout(() => {
+      setSelectedTask(null)
+      closeTimerRef.current = null
+    }, 450)
   }, [])
 
-  const onSelectTask = useCallback((task: TaskWithRelations) => {
-    if (panelVisibleRef.current && selectedTask?.id === task.id) { onClosePanel(); return }
+  const onSelectTask = useCallback((task: TaskWithRelations, options?: { blockId?: string | null; mode?: "view" | "edit" }) => {
+    const nextMode = options?.mode ?? "view"
+    const nextBlockId = options?.blockId ?? null
+    if (panelVisibleRef.current && selectedTaskRef.current?.id === task.id) {
+      if (selectedModeRef.current !== nextMode || selectedBlockIdRef.current !== nextBlockId) {
+        setSelectedTask(task)
+        setSelectedMode(nextMode)
+        setSelectedBlockId(nextBlockId)
+        return
+      }
+      onClosePanel()
+      return
+    }
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
-    if (panelVisibleRef.current) { setSelectedTask(task); return }
+    if (panelVisibleRef.current) {
+      setSelectedTask(task)
+      setSelectedMode(nextMode)
+      setSelectedBlockId(nextBlockId)
+      return
+    }
     setSelectedTask(task)
+    setSelectedMode(nextMode)
+    setSelectedBlockId(nextBlockId)
     setPanelVisible(false)
     requestAnimationFrame(() => requestAnimationFrame(() => {
       setPanelVisible(true)
       panelVisibleRef.current = true
     }))
-  }, [selectedTask, onClosePanel])
+  }, [onClosePanel])
 
   const onMainAreaClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     if (!panelVisibleRef.current) return
@@ -134,8 +179,8 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
     onClosePanel()
   }, [onClosePanel])
 
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
-  const weekDays = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) })
+  const weekStart = useMemo(() => startOfWeek(currentDate, { weekStartsOn: 1 }), [currentDate])
+  const weekDays = useMemo(() => eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) }), [weekStart])
 
   const getTasksForDay = (day: Date) => {
     const seen = new Set<string>()
@@ -161,6 +206,10 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
   const title = view === "week"
     ? `${format(weekDays[0], "M月d日", { locale: t.dateFnsLocale })} – ${format(weekDays[6], "M月d日", { locale: t.dateFnsLocale })}`
     : format(currentDate, "yyyy年 M月", { locale: t.dateFnsLocale })
+
+  const weekView = useMemo(() => (
+    <WeekTimeGrid tasks={tasks} allTags={allTags} weekDays={weekDays} isMobile={isMobile} onSelectTask={onSelectTask} />
+  ), [tasks, allTags, weekDays, isMobile, onSelectTask])
 
   /* Month day cell — each day is its own floating glass card */
   function MonthDayCell({ day, modifiers }: DayProps) {
@@ -235,8 +284,6 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
     )
   }
 
-  const PANEL_W = 320
-
   const mainContent = (
     <div className="space-y-3 min-w-0">
       {/* Controls */}
@@ -268,9 +315,7 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
 
       <div key={viewKey} className={slideDir === "right" ? "animate-view-right" : "animate-view-left"}>
       {/* ── WEEK VIEW ── */}
-      {view === "week" && (
-        <WeekTimeGrid tasks={tasks} allTags={allTags} weekDays={weekDays} isMobile={isMobile} onSelectTask={onSelectTask} />
-      )}
+      {view === "week" && weekView}
 
       {/* ── MONTH CALENDAR — liquid glass ── */}
       {view === "month" && (
@@ -334,6 +379,8 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
               <TaskDetailPanel
                 task={{ ...selectedTask, subTasks: selectedTask.subTasks ?? [] }}
                 allTags={allTags}
+                initialMode={selectedMode}
+                initialEditingBlockId={selectedBlockId}
                 onClose={() => setSelectedTask(null)}
               />
             )}
@@ -348,36 +395,17 @@ export function TimelineView({ tasks, allTags = [] }: { tasks: TaskWithRelations
     <div className="flex gap-6 items-stretch min-w-0">
       <div className="flex-1 min-w-0" onClick={onMainAreaClick}>{mainContent}</div>
 
-      {/* Panel wrapper — width animates with ease-out-expo */}
-      <div
-        className="flex-shrink-0 overflow-hidden self-stretch"
-        style={{
-          width: panelVisible ? PANEL_W : 0,
-          transition: "width 0.42s cubic-bezier(0.16, 1, 0.3, 1)",
-        }}
-      >
+      <TaskSidePanel mounted={!!selectedTask} visible={panelVisible}>
         {selectedTask && (
-          <div
-            className="sticky top-20"
-            style={{
-              width: PANEL_W,
-              height: "calc(100dvh - 6.5rem)",
-              opacity: panelVisible ? 1 : 0,
-              transform: panelVisible ? "translateX(0)" : "translateX(32px)",
-              transition: [
-                "opacity 0.42s cubic-bezier(0.16, 1, 0.3, 1)",
-                "transform 0.42s cubic-bezier(0.34, 1.15, 0.64, 1)",
-              ].join(", "),
-            }}
-          >
-            <TaskDetailPanel
-              task={{ ...selectedTask, subTasks: selectedTask.subTasks ?? [] }}
-              allTags={allTags}
-              onClose={onClosePanel}
-            />
-          </div>
+          <TaskDetailPanel
+            task={{ ...selectedTask, subTasks: selectedTask.subTasks ?? [] }}
+            allTags={allTags}
+            initialMode={selectedMode}
+            initialEditingBlockId={selectedBlockId}
+            onClose={onClosePanel}
+          />
         )}
-      </div>
+      </TaskSidePanel>
     </div>
   )
 }

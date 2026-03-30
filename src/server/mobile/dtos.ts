@@ -55,6 +55,8 @@ export interface SubTaskDTO {
 export interface TimeBlockDTO {
   id: string
   taskId: string
+  subTaskId: string | null
+  originTimeBlockId: string | null
   startAt: string
   endAt: string
   isAllDay: boolean
@@ -180,6 +182,8 @@ export function serializeTimeBlock(timeBlock: TimeBlock): TimeBlockDTO {
   return {
     id: timeBlock.id,
     taskId: timeBlock.taskId,
+    subTaskId: timeBlock.subTaskId ?? null,
+    originTimeBlockId: timeBlock.originTimeBlockId ?? null,
     startAt: timeBlock.startAt.toISOString(),
     endAt: timeBlock.endAt.toISOString(),
     isAllDay: timeBlock.isAllDay,

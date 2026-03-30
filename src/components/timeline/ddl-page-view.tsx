@@ -18,6 +18,7 @@ import { cycleTaskStatus } from "@/lib/actions/tasks"
 import { useT } from "@/contexts/locale-context"
 import { useIsMobile } from "@/hooks/use-is-mobile"
 import type { Task, TaskTag, Tag, SubTask, TimeBlock } from "@prisma/client"
+import { TaskSidePanel } from "@/components/tasks/task-side-panel"
 
 type TaskWithRelations = Task & {
   taskTags: (TaskTag & { tag: Tag })[]
@@ -249,6 +250,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
   }
   // Two-state system: selectedTask = DOM presence, panelVisible = CSS transition
   const [selectedTask, setSelectedTask] = useState<TaskWithRelations | null>(null)
+  const [selectedMode, setSelectedMode] = useState<"view" | "edit">("view")
   const [panelVisible, setPanelVisible] = useState(false)
   const panelVisibleRef = useRef(false)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -301,29 +303,36 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
     }, 450)
   }, [])
 
-  const onSelectTask = useCallback((task: TaskWithRelations) => {
+  const onSelectTask = useCallback((task: TaskWithRelations, mode: "view" | "edit" = "view") => {
     // Cancel any in-progress close animation
     if (closeTimerRef.current) {
       clearTimeout(closeTimerRef.current)
       closeTimerRef.current = null
     }
     if (panelVisibleRef.current && selectedTask?.id === task.id) {
+      if (selectedMode !== mode) {
+        setSelectedTask(task)
+        setSelectedMode(mode)
+        return
+      }
       onClosePanel()
       return
     }
     // Panel already open → just swap content, no animation flicker
     if (panelVisibleRef.current) {
       setSelectedTask(task)
+      setSelectedMode(mode)
       return
     }
-    // Panel closed → animate it open
+    // Panel closed → animate it open directly into the requested mode.
     setSelectedTask(task)
+    setSelectedMode(mode)
     setPanelVisible(false)
     requestAnimationFrame(() => requestAnimationFrame(() => {
       setPanelVisible(true)
       panelVisibleRef.current = true
     }))
-  }, [onClosePanel, selectedTask])
+  }, [onClosePanel, selectedTask, selectedMode])
 
   const onMainAreaClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     if (!panelVisibleRef.current) return
@@ -492,6 +501,7 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
               <TaskDetailPanel
                 task={{ ...selectedTask, subTasks: selectedTask.subTasks ?? [] }}
                 allTags={allTags}
+                initialMode={selectedMode}
                 onClose={() => setSelectedTask(null)}
               />
             )}
@@ -502,9 +512,6 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
   }
 
   // Desktop: two-column layout — main content + right panel
-  // The outer panel wrapper always lives in the DOM so its width transition plays on both enter and exit.
-  // width: 0 → 320px compresses the main column; inner div spring-slides in from the right.
-  const PANEL_W = 320
   return (
     <div className="flex gap-6 items-stretch min-w-0">
       {/* Main content — naturally compressed as panel wrapper expands */}
@@ -512,38 +519,16 @@ export function DdlPageView({ tasks, allTags }: { tasks: TaskWithRelations[]; al
         {mainContent}
       </div>
 
-      {/* Panel wrapper — always in DOM, width animates with ease-out-expo (no overshoot) */}
-      <div
-        className="flex-shrink-0 overflow-hidden self-stretch"
-        style={{
-          width: panelVisible ? PANEL_W : 0,
-          transition: "width 0.42s cubic-bezier(0.16, 1, 0.3, 1)",
-        }}
-      >
-        {/* Inner panel — spring slides in from right (slight overshoot for Apple feel) */}
+      <TaskSidePanel mounted={!!selectedTask} visible={panelVisible} dataAttribute="data-ddl-panel" durationMs={300}>
         {selectedTask && (
-          <div
-            data-ddl-panel="true"
-            className="sticky top-20"
-            style={{
-              width: PANEL_W,
-              height: "calc(100dvh - 6.5rem)",
-              opacity: panelVisible ? 1 : 0,
-              transform: panelVisible ? "translateX(0)" : "translateX(32px)",
-              transition: [
-                "opacity 0.42s cubic-bezier(0.16, 1, 0.3, 1)",
-                "transform 0.42s cubic-bezier(0.34, 1.15, 0.64, 1)",
-              ].join(", "),
-            }}
-          >
-            <TaskDetailPanel
-              task={{ ...selectedTask, subTasks: selectedTask.subTasks ?? [] }}
-              allTags={allTags}
-              onClose={onClosePanel}
-            />
-          </div>
+          <TaskDetailPanel
+            task={{ ...selectedTask, subTasks: selectedTask.subTasks ?? [] }}
+            allTags={allTags}
+            initialMode={selectedMode}
+            onClose={onClosePanel}
+          />
         )}
-      </div>
+      </TaskSidePanel>
     </div>
   )
 }

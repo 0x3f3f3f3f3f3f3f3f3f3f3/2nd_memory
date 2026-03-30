@@ -111,22 +111,25 @@ export async function reorderTasks(orderedIds: string[]) {
 
 /* ── TimeBlock CRUD ── */
 
-export async function createTimeBlock(taskId: string, startAt: Date, endAt: Date) {
+export async function createTimeBlock(taskId: string, startAt: Date, endAt: Date, subTaskId?: string | null, originTimeBlockId?: string | null) {
   const userId = await getCurrentUserId()
   const block = await createTimeBlockService(userId, taskId, {
     startAt: startAt.toISOString(),
     endAt: endAt.toISOString(),
+    ...(subTaskId !== undefined ? { subTaskId } : {}),
+    ...(originTimeBlockId !== undefined ? { originTimeBlockId } : {}),
   })
   revalidatePath("/timeline")
   revalidatePath("/today")
   return block
 }
 
-export async function updateTimeBlock(id: string, startAt: Date, endAt: Date) {
+export async function updateTimeBlock(id: string, startAt: Date, endAt: Date, subTaskId?: string | null) {
   const userId = await getCurrentUserId()
   const block = await updateTimeBlockService(userId, id, {
     startAt: startAt.toISOString(),
     endAt: endAt.toISOString(),
+    ...(subTaskId !== undefined ? { subTaskId } : {}),
   })
   revalidatePath("/timeline")
   revalidatePath("/today")
@@ -141,11 +144,16 @@ export async function deleteTimeBlock(id: string) {
 }
 
 /** Assigns a task to a day (without a specific time) */
-export async function createAllDayBlock(taskId: string, dateStr: string) {
+export async function createAllDayBlock(taskId: string, dateStr: string, subTaskId?: string | null, originTimeBlockId?: string | null) {
   // dateStr is "YYYY-MM-DD" in the user's local calendar
   const d = new Date(`${dateStr}T00:00:00Z`)
-  const block = await prisma.timeBlock.create({
-    data: { taskId, startAt: d, endAt: d, isAllDay: true },
+  const userId = await getCurrentUserId()
+  const block = await createTimeBlockService(userId, taskId, {
+    startAt: d.toISOString(),
+    endAt: d.toISOString(),
+    isAllDay: true,
+    ...(subTaskId !== undefined ? { subTaskId } : {}),
+    ...(originTimeBlockId !== undefined ? { originTimeBlockId } : {}),
   })
   revalidatePath("/timeline")
   revalidatePath("/today")
