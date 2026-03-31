@@ -111,6 +111,7 @@ describe("performance safety", () => {
       notes: [],
       tags: [],
       searchResults: [],
+      upcomingTimeBlocks: [],
     })
     planAiIntent.mockResolvedValue({
       mode: "execute",

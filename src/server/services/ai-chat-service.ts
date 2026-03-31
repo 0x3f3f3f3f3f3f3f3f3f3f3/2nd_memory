@@ -3,6 +3,7 @@ import { streamNonDbChat } from "@/server/ai/chat-responder"
 import { executeAiIntentPlan } from "@/server/ai/executor"
 import { buildDeterministicPlan, planAiIntent } from "@/server/ai/planner"
 import { classifyAiRoute } from "@/server/ai/router"
+import type { AiExecutionMutation } from "@/server/ai/contracts"
 import { normalizeTimeZone } from "@/server/time"
 
 export interface AiChatMessage {
@@ -21,6 +22,8 @@ export type AiRouteDiagnostics = {
 export type AiStreamResult = {
   stream: ReadableStream<Uint8Array>
   diagnostics: AiRouteDiagnostics
+  summaryText: string
+  mutations: AiExecutionMutation[]
 }
 
 function streamText(text: string) {
@@ -77,6 +80,8 @@ export async function streamAiChat(input: {
     mark(timings, "total", totalStart)
     return {
       stream,
+      summaryText: "",
+      mutations: [],
       diagnostics: {
         routeKind: routeDecision.kind,
         timings,
@@ -122,6 +127,8 @@ export async function streamAiChat(input: {
     mark(timings, "total", totalStart)
     return {
       stream: streamText(input.locale === "en" ? "I could not determine a safe action." : "我暂时无法安全判断该如何执行。"),
+      summaryText: input.locale === "en" ? "I could not determine a safe action." : "我暂时无法安全判断该如何执行。",
+      mutations: [],
       diagnostics: {
         routeKind: routeDecision.kind,
         timings,
@@ -163,6 +170,8 @@ export async function streamAiChat(input: {
 
   return {
     stream,
+    summaryText: result.userFacingSummary,
+    mutations: result.mutations,
     diagnostics: {
       routeKind: routeDecision.kind,
       timings,

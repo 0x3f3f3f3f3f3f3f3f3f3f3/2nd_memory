@@ -122,7 +122,7 @@ struct NotesView: View {
                 }
             }
         }
-        .task {
+        .task(id: environment.aiRefreshCenter.notesRevision) {
             await viewModel.load(using: environment.apiClient)
         }
         .onSubmit(of: .search) {

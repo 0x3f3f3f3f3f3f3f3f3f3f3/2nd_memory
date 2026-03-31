@@ -166,7 +166,7 @@ struct InboxView: View {
             .background(.clear)
         }
         .navigationTitle(String(localized: "inbox.title"))
-        .task {
+        .task(id: environment.aiRefreshCenter.inboxRevision) {
             await viewModel.load(using: environment.apiClient)
         }
         .sheet(item: $processingItem) { item in

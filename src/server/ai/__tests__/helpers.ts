@@ -156,6 +156,26 @@ export function createInMemoryRepository(seed: SeedState = {}) {
       task.updatedAt = new Date()
       return block
     },
+    async updateTimeBlock(_userId, id, input) {
+      for (const task of tasks) {
+        const block = task.timeBlocks.find((item) => item.id === id)
+        if (!block) continue
+        if (input.startAt !== undefined) block.startAt = new Date(input.startAt)
+        if (input.endAt !== undefined) block.endAt = new Date(input.endAt)
+        if (input.isAllDay !== undefined) block.isAllDay = input.isAllDay
+        return block
+      }
+      throw new Error(`Time block not found: ${id}`)
+    },
+    async deleteTimeBlock(_userId, id) {
+      for (const task of tasks) {
+        const index = task.timeBlocks.findIndex((item) => item.id === id)
+        if (index >= 0) {
+          task.timeBlocks.splice(index, 1)
+          return
+        }
+      }
+    },
     async createNote(_userId, input) {
       const note = {
         id: nextId("note"),

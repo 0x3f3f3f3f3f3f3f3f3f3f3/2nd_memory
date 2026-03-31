@@ -11,6 +11,7 @@ const baseContext: AiPlannerContext = {
   notes: [],
   tags: [],
   searchResults: [],
+  upcomingTimeBlocks: [],
 }
 
 describe("planner", () => {
@@ -32,9 +33,9 @@ describe("planner", () => {
     })
 
     expect(plan.mode).toBe("execute")
-    expect(plan.actions[0]?.type).toBe("upsert_task")
+    expect(plan.actions[0]?.type).toBe("ensure_task_occurrence")
     const action = plan.actions[0]
-    if (action?.type !== "upsert_task") throw new Error("unexpected action")
+    if (action?.type !== "ensure_task_occurrence") throw new Error("unexpected action")
     expect(action.reminderAt).toBeTruthy()
     expect(action.dueAt ?? null).toBeNull()
     const local = new TZDate(new Date(action.reminderAt!), "Asia/Shanghai")
@@ -84,8 +85,8 @@ describe("planner", () => {
     })
 
     const action = plan.actions[0]
-    expect(action?.type).toBe("upsert_task")
-    if (action?.type !== "upsert_task") throw new Error("unexpected action")
+    expect(action?.type).toBe("ensure_task_occurrence")
+    if (action?.type !== "ensure_task_occurrence") throw new Error("unexpected action")
     expect(action.reminderAt).toBeTruthy()
     const local = new TZDate(new Date(action.reminderAt!), "America/Los_Angeles")
     expect(local.getHours()).toBe(12)

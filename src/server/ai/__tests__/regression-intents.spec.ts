@@ -14,6 +14,7 @@ function makeContext(locale: "zh-Hans" | "en", timeZone: string): AiPlannerConte
     notes: [],
     tags: [],
     searchResults: [],
+    upcomingTimeBlocks: [],
   }
 }
 
@@ -56,7 +57,7 @@ describe("AI regression intents", () => {
     expect(runtime.db.inbox).toHaveLength(0)
     expect(runtime.db.tasks).toHaveLength(1)
     expect(runtime.db.tasks[0].dueAt).toBeNull()
-    expect(runtime.db.tasks[0].timeBlocks).toHaveLength(0)
+    expect(runtime.db.tasks[0].timeBlocks).toHaveLength(1)
     const local = new TZDate(runtime.db.tasks[0].reminderAt!, "Asia/Shanghai")
     expect(local.getHours()).toBe(12)
   })
@@ -101,9 +102,9 @@ describe("AI regression intents", () => {
 
   it("5. 接下来一周每天中午吃药 -> expanded reminder tasks", async () => {
     const { runtime } = await planAndExecute({ text: "接下来一周每天中午吃药" })
-    expect(runtime.db.tasks.length).toBeGreaterThanOrEqual(7)
-    expect(runtime.db.tasks.every((task) => task.timeBlocks.length === 0)).toBe(true)
-    expect(runtime.db.tasks.every((task) => task.reminderAt)).toBe(true)
+    expect(runtime.db.tasks).toHaveLength(1)
+    expect(runtime.db.tasks[0].timeBlocks.length).toBeGreaterThanOrEqual(7)
+    expect(runtime.db.tasks[0].reminderAt).toBeTruthy()
   })
 
   it("6. LLM 世界想法 -> enriched note only", async () => {
@@ -144,6 +145,39 @@ describe("AI regression intents", () => {
   it("10. 先记一下...晚点再整理 -> inbox", async () => {
     const { runtime } = await planAndExecute({ text: "先记一下：也许可以把 agent 的奖励拆成短期反馈和长期声誉，晚点再整理" })
     expect(runtime.db.inbox).toHaveLength(1)
+  })
+
+  it("11. 清除所有规划 -> clear future time blocks only", async () => {
+    const { runtime } = await planAndExecute({
+      text: "清除所有规划",
+      seed: {
+        tasks: [
+          {
+            title: "托福",
+            timeBlocks: [
+              { startAt: "2026-03-31T13:00:00.000Z", endAt: "2026-03-31T13:30:00.000Z" },
+              { startAt: "2026-04-01T13:00:00.000Z", endAt: "2026-04-01T13:30:00.000Z" },
+            ],
+          },
+        ],
+      },
+    })
+    expect(runtime.db.tasks).toHaveLength(1)
+    expect(runtime.db.tasks[0].timeBlocks).toHaveLength(0)
+    expect(runtime.db.notes).toHaveLength(0)
+  })
+
+  it("12. 删除所有任务 -> delete tasks", async () => {
+    const { runtime } = await planAndExecute({
+      text: "删除所有任务",
+      seed: {
+        tasks: [
+          { title: "任务A" },
+          { title: "任务B" },
+        ],
+      },
+    })
+    expect(runtime.db.tasks).toHaveLength(0)
   })
 
   it("deduplicates same-title same-reminder task occurrences", async () => {

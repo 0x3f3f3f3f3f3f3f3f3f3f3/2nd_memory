@@ -25,7 +25,7 @@ final class AIChatViewModel {
     var isStreaming = false
     var errorMessage: String?
 
-    func send(using api: APIClient, locale: AppLanguage, timezone: String) async {
+    func send(using api: APIClient, locale: AppLanguage, timezone: String, refreshCenter: AppEnvironment.AIRefreshCenter) async {
         let prompt = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !isStreaming else { return }
         input = ""
@@ -38,12 +38,32 @@ final class AIChatViewModel {
 
         do {
             var content = ""
-            for try await line in api.streamText(path: "/api/mobile/v1/ai/chat", body: request) {
-                content += line
-                if let index = messages.lastIndex(where: { $0.role == .assistant }) {
-                    messages[index] = ChatMessage(id: messages[index].id, role: .assistant, content: content)
+            var impactedFeatures = Set<AIRefreshFeature>()
+            for try await event in api.streamEvents(path: "/api/mobile/v1/ai/chat", body: request) {
+                switch event.type {
+                case "token":
+                    content += event.delta ?? ""
+                    if let index = messages.lastIndex(where: { $0.role == .assistant }) {
+                        messages[index] = ChatMessage(id: messages[index].id, role: .assistant, content: content)
+                    }
+                case "mutation":
+                    for feature in event.features ?? [] {
+                        impactedFeatures.insert(feature)
+                    }
+                case "complete":
+                    if let summary = event.summary, !summary.isEmpty {
+                        content = summary
+                        if let index = messages.lastIndex(where: { $0.role == .assistant }) {
+                            messages[index] = ChatMessage(id: messages[index].id, role: .assistant, content: content)
+                        }
+                    }
+                case "error":
+                    throw NSError(domain: "AIStream", code: 1, userInfo: [NSLocalizedDescriptionKey: event.message ?? "Unknown AI stream error"])
+                default:
+                    continue
                 }
             }
+            refreshCenter.apply(features: Array(impactedFeatures))
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -101,7 +121,12 @@ struct AIAssistantView: View {
                                 .lineLimit(1...6)
                             Button {
                                 Task { @MainActor in
-                                    await viewModel.send(using: environment.apiClient, locale: environment.settings.language, timezone: environment.settings.effectiveTimeZoneIdentifier)
+                                    await viewModel.send(
+                                        using: environment.apiClient,
+                                        locale: environment.settings.language,
+                                        timezone: environment.settings.effectiveTimeZoneIdentifier,
+                                        refreshCenter: environment.aiRefreshCenter
+                                    )
                                 }
                             } label: {
                                 Image(systemName: viewModel.isStreaming ? "hourglass" : "arrow.up.circle.fill")

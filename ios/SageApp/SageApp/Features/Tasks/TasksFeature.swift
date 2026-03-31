@@ -156,7 +156,7 @@ struct TasksView: View {
                 }
             }
         }
-        .task {
+        .task(id: environment.aiRefreshCenter.tasksRevision) {
             await reload()
         }
         .onChange(of: viewModel.statusFilter) { _, _ in

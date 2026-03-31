@@ -12,10 +12,16 @@ import {
   buildOccurrencesFromDailyReminder,
   buildOccurrencesFromRecurringSchedule,
   COARSE_TIME_MAP,
+  hasCoarseExecutionSlot,
+  hasExplicitExecutionTime,
+  isCancelOccurrenceIntent,
   isDeadlineIntent,
+  isDiscreteActionVerb,
   isExplicitInboxIntent,
   isReminderIntent,
+  isRescheduleIntent,
   isScheduleIntent,
+  isWorkSessionVerb,
   parseRecurringWindow,
   parseTimePoint,
   parseDurationMinutes,
@@ -87,10 +93,39 @@ function buildReminderPlan(input: {
 }): AiIntentPlan | null {
   const title = extractTitle(input.text, "task")
   if (title.confidence < 0.95) return null
+  const hasExecutionSlot = hasExplicitExecutionTime(input.text) || hasCoarseExecutionSlot(input.text)
+  const isDiscreteExecution = isDiscreteActionVerb(input.text)
   const reminderAt = parseTimePoint(input.text, input.timeZone, input.now ?? new Date(), {
     defaultHour: COARSE_TIME_MAP.morning.hour,
     defaultMinute: COARSE_TIME_MAP.morning.minute,
   })
+  if (hasExecutionSlot && isDiscreteExecution) {
+    const duration = /(医院|复诊|dentist|doctor|meeting|开会)/iu.test(input.text) ? 60 : 15
+    const endAt = new Date(reminderAt.at.getTime() + duration * 60000)
+    return {
+      mode: "execute",
+      confidence: 0.98,
+      intentSummary: "Timed discrete execution occurrence",
+      assumptions: [],
+      actions: [
+        {
+          type: "ensure_task_occurrence",
+          taskTitle: title.title,
+          taskQuery: title.title,
+          createTaskIfMissing: true,
+          taskDescriptionIfCreate: normalizeWhitespace(input.text),
+          reminderAt: reminderAt.at.toISOString(),
+          startAt: reminderAt.at.toISOString(),
+          endAt: endAt.toISOString(),
+          isAllDay: false,
+          occurrenceKind: "discrete_execution",
+          priority: "MEDIUM",
+          status: "TODO",
+        },
+      ],
+      userFacingSummary: input.locale === "en" ? "I’ll create or update the task and place it into the plan." : "我会创建或更新任务，并把它加入规划。",
+    }
+  }
   return {
     mode: "execute",
     confidence: 0.98,
@@ -188,6 +223,35 @@ function buildRecurringReminderPlan(input: {
   const title = extractTitle(input.text, "task")
   if (title.confidence < 0.95) return null
   const occurrences = buildOccurrencesFromDailyReminder(input.text, input.timeZone, input.now ?? new Date(), COARSE_TIME_MAP.noon.hour, COARSE_TIME_MAP.noon.minute)
+  if (hasExplicitExecutionTime(input.text) || hasCoarseExecutionSlot(input.text)) {
+    return {
+      mode: "execute",
+      confidence: 0.98,
+      intentSummary: "Recurring discrete timed occurrences",
+      assumptions: [`Expanded to at most ${RECURRING_EXPANSION_LIMIT} occurrences.`],
+      actions: [
+        {
+          type: "bulk_ensure_task_occurrences",
+          taskTitle: title.title,
+          taskQuery: title.title,
+          createTaskIfMissing: true,
+          taskDescriptionIfCreate: normalizeWhitespace(input.text),
+          occurrenceKind: "discrete_execution",
+          priority: "MEDIUM",
+          status: "TODO",
+          occurrences: occurrences.map((occurrence) => ({
+            title: title.title,
+            reminderAt: occurrence.reminderAt ?? null,
+            startAt: occurrence.reminderAt!,
+            endAt: new Date(new Date(occurrence.reminderAt!).getTime() + 15 * 60000).toISOString(),
+            dueAt: null,
+            isAllDay: false,
+          })),
+        },
+      ],
+      userFacingSummary: input.locale === "en" ? "I’ll create recurring occurrences and put them into the plan." : "我会创建重复 occurrence，并让它们进入规划。",
+    } satisfies AiIntentPlan
+  }
   return {
     mode: "execute",
     confidence: 0.98,
@@ -268,39 +332,37 @@ export function buildDeterministicPlan(input: {
 
   if (!text) return null
 
-  if (input.routeKind === "DESTRUCTIVE_SCHEDULE") {
-    if (/(清除所有规划|清除所有安排|清除所有日程|清空未来安排|clear all schedules|clear all planning)/iu.test(text)) {
-      return {
-        mode: "execute",
-        confidence: 0.99,
-        intentSummary: "Clear future scheduled blocks without deleting tasks or notes",
-        assumptions: ["Default destructive schedule semantics only remove future time blocks."],
-        actions: [
-          {
-            type: "clear_future_time_blocks",
-            scope: "all_tasks",
-            preserveTasks: true,
-          },
-        ],
-        userFacingSummary: input.locale === "en" ? "I’ll clear future scheduled blocks and keep tasks and notes intact." : "我会清除未来的安排，但保留任务和笔记本身。",
-      }
+  if (/(清除所有规划|清除所有安排|清除所有日程|清空未来安排|clear all schedules|clear all planning)/iu.test(text)) {
+    return {
+      mode: "execute",
+      confidence: 0.99,
+      intentSummary: "Clear future scheduled blocks without deleting tasks or notes",
+      assumptions: ["Default destructive schedule semantics only remove future time blocks."],
+      actions: [
+        {
+          type: "clear_future_time_blocks",
+          scope: "all_tasks",
+          preserveTasks: true,
+        },
+      ],
+      userFacingSummary: input.locale === "en" ? "I’ll clear future scheduled blocks and keep tasks and notes intact." : "我会清除未来的安排，但保留任务和笔记本身。",
     }
+  }
 
-    if (/(删除所有任务|清空待办|delete all tasks|clear all tasks)/iu.test(text)) {
-      return {
-        mode: "execute",
-        confidence: 0.96,
-        intentSummary: "Delete tasks in scope",
-        assumptions: [],
-        actions: [
-          {
-            type: "delete_tasks_in_scope",
-            scope: "all",
-            archiveInsteadOfDelete: false,
-          },
-        ],
-        userFacingSummary: input.locale === "en" ? "I’ll delete the tasks you explicitly asked to remove." : "我会删除你明确要求删除的任务。",
-      }
+  if (/(删除所有任务|清空待办|delete all tasks|clear all tasks)/iu.test(text)) {
+    return {
+      mode: "execute",
+      confidence: 0.96,
+      intentSummary: "Delete tasks in scope",
+      assumptions: [],
+      actions: [
+        {
+          type: "delete_tasks_in_scope",
+          scope: "all",
+          archiveInsteadOfDelete: false,
+        },
+      ],
+      userFacingSummary: input.locale === "en" ? "I’ll delete the tasks you explicitly asked to remove." : "我会删除你明确要求删除的任务。",
     }
   }
 
@@ -348,6 +410,59 @@ export function buildDeterministicPlan(input: {
   }
 
   const recurringWindow = parseRecurringWindow(text)
+  if (isCancelOccurrenceIntent(text) && /(明天|今天|后天|周[一二三四五六日天]|今晚|晚上|中午|下午|早上|am|pm)/iu.test(text)) {
+    const beforeCancel = text.split(/取消/u)[1] ?? text
+    const title = extractTitle(beforeCancel, "task")
+    if (title.confidence >= 0.95) {
+      return {
+        mode: "execute",
+        confidence: 0.95,
+        intentSummary: "Delete an existing occurrence",
+        assumptions: [],
+        actions: [
+          {
+            type: "delete_time_block",
+            timeBlockQuery: title.title,
+            taskQuery: title.title,
+            dateHint: text,
+            timeHint: text,
+          },
+        ],
+        userFacingSummary: input.locale === "en" ? "I’ll cancel that scheduled occurrence." : "我会取消对应的安排。",
+      }
+    }
+  }
+
+  if (isRescheduleIntent(text)) {
+    const [targetPart, destinationPart] = text.split(/改到|挪到|移到|改成/u)
+    const title = extractTitle(targetPart ?? text, "task")
+    if (title.confidence >= 0.95 && destinationPart) {
+      const newStart = parseTimePoint(destinationPart, input.timeZone, now, {
+        defaultHour: COARSE_TIME_MAP.afternoon.hour,
+        defaultMinute: COARSE_TIME_MAP.afternoon.minute,
+      })
+      const endAt = new Date(newStart.at.getTime() + parseDurationMinutes(destinationPart, 30) * 60000)
+      return {
+        mode: "execute",
+        confidence: 0.95,
+        intentSummary: "Move an existing time block",
+        assumptions: [],
+        actions: [
+          {
+            type: "move_time_block",
+            timeBlockQuery: title.title,
+            taskQuery: title.title,
+            fromDateHint: text,
+            fromTimeHint: text,
+            newStartAt: newStart.at.toISOString(),
+            newEndAt: endAt.toISOString(),
+          },
+        ],
+        userFacingSummary: input.locale === "en" ? "I’ll move that scheduled block." : "我会调整对应的安排时间。",
+      }
+    }
+  }
+
   if (recurringWindow && /每天|every day/iu.test(text)) {
     if (isReminderIntent(text) || /吃药|缴费|打电话|医院/u.test(text)) {
       return buildRecurringReminderPlan(input)
@@ -419,6 +534,9 @@ export function buildDeterministicPlan(input: {
   }
 
   if (isScheduleIntent(text) && !recurringWindow) {
+    if (isWorkSessionVerb(text) || hasExplicitExecutionTime(text) || hasCoarseExecutionSlot(text)) {
+      return buildSchedulePlan(input)
+    }
     return buildSchedulePlan(input)
   }
 

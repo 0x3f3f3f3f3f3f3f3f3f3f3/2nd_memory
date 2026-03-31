@@ -1,67 +1,55 @@
 # AI Accuracy-First Repair
 
-## What Regressed
+## Root Cause
 
-The critical regression was title extraction on recurring schedule utterances such as:
+The regression was caused by title extraction and fast-path execution being too permissive.
+
+The specific failure:
 
 - `接下来一周我每天晚上9点要做30分钟托福`
 
-The old extraction path could collapse this into a shell fragment like:
+could be reduced to a malformed shell title like:
 
 - `我每天晚上9点要做`
 
-That made the system fast in simple cases but semantically unacceptable in production.
-
-## Root Cause
-
-The regression was not just a prompt problem.
-
-The real causes were:
-
-1. title extraction relied on shell-stripping and crude truncation
-2. fast deterministic paths could still execute with malformed titles
-3. there was no explicit confidence gate before fast-path writes
-4. summary strings were not centralized around actual mutation semantics
-
-Because of that, wrong titles could still be written and then echoed back in success messages.
+That happened because the old fast heuristics stripped surface tokens but did not reliably preserve the semantic object.
 
 ## Why Prompt-Only Fixes Are Not Enough
 
-Prompt examples help, but they do not prevent:
+Prompt examples alone cannot fix:
 
-- malformed regex extraction
-- low-confidence fast-path writes
-- route-level misclassification
-- summaries that describe the wrong entity
+- malformed local title extraction
+- unsafe fast-path writes
+- route-level over-eager heuristics
+- summaries that confirm the wrong title
 
-So the repair had to change:
+So the repair had to modify:
 
 - route orchestration
 - title extraction
-- fast-path safety checks
-- execution summaries
+- fast-path confidence gating
+- executor action support
+- summary generation
 - tests
 
 ## Canonical AI Path
 
-There are now two thin route adapters:
+There are two route adapters:
 
-- web: `/api/ai`
-- mobile: `/api/mobile/v1/ai/chat`
+- web `/api/ai`
+- mobile `/api/mobile/v1/ai/chat`
 
-Both call the same shared core:
+Both now call the same shared core:
 
 - `src/server/services/ai-chat-service.ts`
 
-That shared core performs:
+Canonical flow:
 
 1. route classification
-2. non-db chat or deterministic fast path or full planner
+2. `NON_DB_CHAT` or deterministic fast path or `FULL_PLANNER`
 3. deterministic executor
-4. centralized summary generation
-5. streaming response
-
-This is the canonical path.
+4. centralized summary builder
+5. streamed response
 
 ## Title Extraction Rules
 
@@ -69,15 +57,15 @@ Implemented in:
 
 - `src/server/ai/title-extractor.ts`
 
-The extractor now removes:
+The extractor removes:
 
 - pronouns
 - modal shells
-- recurring/frequency shells
-- coarse and precise time expressions
+- recurring shells
+- time expressions
 - duration expressions
 
-and then extracts a core activity.
+and then extracts a core activity with confidence.
 
 Examples:
 
@@ -91,42 +79,59 @@ Examples:
 
 Fast path is only allowed when:
 
-- route intent is high confidence
-- title extraction confidence is at least `0.95`
+- the route classification is high-confidence
+- the extracted title has confidence `>= 0.95`
 
-If title confidence is lower than that, the request must degrade to the full planner path.
+If title confidence is below that threshold, the request degrades to the richer planner path.
 
-This prevents speed optimizations from writing malformed entities.
+This prevents speed optimizations from writing shell fragments into the database.
 
 ## Why `接下来一周我每天晚上9点要做30分钟托福` Must Be a Recurring Schedule
 
-This sentence expresses:
+This utterance expresses:
 
-- a repeated cadence
-- a specific time of day
+- a recurring cadence
+- an explicit execution time
 - a duration
 - a concrete activity
 
-That is a recurring work session, so the correct representation is:
+So the correct data result is:
 
-- one clean task title: `托福`
-- repeated `TimeBlock`s for the next 7 days
-- each block scheduled at local `21:00-21:30`
+- task title: `托福`
+- seven upcoming time blocks
+- each block at local `21:00–21:30`
 
 It is not:
 
 - inbox
 - note
-- a single unplanned task
+- reminder-only
 - a malformed shell title
+
+## Why `我明天中午十二点要吃药` Now Enters Plan
+
+The system now distinguishes:
+
+- pure reminder
+- timed discrete execution occurrence
+- work session
+
+`我明天中午十二点要吃药` is treated as:
+
+- task
+- reminderAt
+- plan-visible occurrence
+
+That keeps the reminder semantics while also making the action visible in Plan / Timeline.
 
 ## Why Accuracy Still Comes Before Speed
 
-Performance improvements are now constrained by safety:
+Speed improvements now come from skipping unnecessary work safely:
 
-- obvious reminder/deadline/schedule cases can fast-path
-- ambiguous title extraction cannot
-- non-db chat skips DB entirely
-- full planner only runs when needed
+- non-db chat skips Prisma
+- obvious fast routes skip full planner LLM
+- heavy context only builds when needed
 
-So speed comes from avoiding unnecessary work, not from weakening semantic guarantees.
+But no fast route may write data when title confidence is low.
+
+So speed comes from smaller safe paths, not from lowering semantic quality.

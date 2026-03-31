@@ -17,6 +17,7 @@ export function buildLiteContext(input: {
     notes: [],
     tags: [],
     searchResults: [],
+    upcomingTimeBlocks: [],
   }
 }
 
@@ -87,6 +88,7 @@ export async function buildScopedTaskContext(input: {
         tags: lite.tags.map((tag) => ({ id: tag.id, name: tag.name })),
       },
     ],
+    upcomingTimeBlocks: [],
   }
 }
 
@@ -150,6 +152,7 @@ export async function buildNoteContext(input: {
         tags: lite.tags.map((tag) => ({ id: tag.id, name: tag.name })),
       },
     ],
+    upcomingTimeBlocks: [],
   }
 }
 
@@ -168,6 +171,7 @@ export async function buildDestructiveContext(input: {
   return {
     ...buildLiteContext(input),
     notes: futureCount > 0 ? [{ id: "__future_time_blocks__", title: `future:${futureCount}`, summary: "", updatedAt: new Date().toISOString() }] : [],
+    upcomingTimeBlocks: [],
   }
 }
 
@@ -181,7 +185,7 @@ export async function buildFullPlannerContext(input: {
   const { start } = zonedDayRange(input.timeZone)
   const horizonEnd = addDays(start, 7)
 
-  const [tasks, notes, tags, searches] = await Promise.all([
+  const [tasks, notes, tags, searches, upcomingTimeBlocks] = await Promise.all([
     prisma.task.findMany({
       where: {
         userId: input.userId,
@@ -231,6 +235,30 @@ export async function buildFullPlannerContext(input: {
         tags: result.tags.slice(0, 4).map((tag) => ({ id: tag.id, name: tag.name })),
       }
     })),
+    prisma.timeBlock.findMany({
+      where: {
+        task: { userId: input.userId },
+        startAt: { gte: addDays(start, -1), lt: addDays(start, 14) },
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
+            subTasks: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { startAt: "asc" },
+      take: 40,
+    }),
   ])
 
   return {
@@ -256,6 +284,17 @@ export async function buildFullPlannerContext(input: {
     })),
     tags,
     searchResults: searches,
+    upcomingTimeBlocks: upcomingTimeBlocks.map((block) => ({
+      timeBlockId: block.id,
+      taskId: block.task.id,
+      taskTitle: block.task.title,
+      subTaskTitle: block.subTaskId ? block.task.subTasks.find((item) => item.id === block.subTaskId)?.title ?? null : null,
+      startAt: block.startAt.toISOString(),
+      endAt: block.endAt.toISOString(),
+      isAllDay: block.isAllDay,
+      status: block.task.status,
+      priority: block.task.priority,
+    })),
   }
 }
 

@@ -62,6 +62,56 @@ export const bulkCreateDiscreteTasksActionSchema = z.object({
   occurrences: z.array(occurrenceSpecSchema.pick({ title: true, dueAt: true, reminderAt: true })).min(1).max(30),
 })
 
+export const ensureTaskOccurrenceActionSchema = z.object({
+  type: z.literal("ensure_task_occurrence"),
+  taskTitle: z.string().trim().min(1).max(300),
+  taskQuery: z.string().trim().max(300).optional(),
+  createTaskIfMissing: z.boolean(),
+  taskDescriptionIfCreate: z.string().trim().max(4000).optional(),
+  dueAt: z.string().datetime({ offset: true }).nullable().optional(),
+  reminderAt: z.string().datetime({ offset: true }).nullable().optional(),
+  startAt: z.string().datetime({ offset: true }),
+  endAt: z.string().datetime({ offset: true }),
+  isAllDay: z.boolean().optional(),
+  occurrenceKind: z.enum(["discrete_execution", "work_session"]),
+  defaultDurationMinutes: z.number().int().positive().max(24 * 60).optional(),
+  priority: prioritySchema.optional(),
+  status: taskStatusSchema.optional(),
+  tagNames: z.array(z.string()).optional(),
+})
+
+export const bulkEnsureTaskOccurrencesActionSchema = z.object({
+  type: z.literal("bulk_ensure_task_occurrences"),
+  taskTitle: z.string().trim().min(1).max(300),
+  taskQuery: z.string().trim().max(300).optional(),
+  createTaskIfMissing: z.boolean(),
+  taskDescriptionIfCreate: z.string().trim().max(4000).optional(),
+  occurrenceKind: z.enum(["discrete_execution", "work_session"]),
+  occurrences: z.array(occurrenceSpecSchema).min(1).max(30),
+  priority: prioritySchema.optional(),
+  status: taskStatusSchema.optional(),
+  tagNames: z.array(z.string()).optional(),
+})
+
+export const moveTimeBlockActionSchema = z.object({
+  type: z.literal("move_time_block"),
+  timeBlockQuery: z.string().trim().max(300),
+  taskQuery: z.string().trim().max(300).optional(),
+  fromDateHint: z.string().trim().max(120).optional(),
+  fromTimeHint: z.string().trim().max(120).optional(),
+  newStartAt: z.string().datetime({ offset: true }),
+  newEndAt: z.string().datetime({ offset: true }),
+  isAllDay: z.boolean().optional(),
+})
+
+export const deleteTimeBlockActionSchema = z.object({
+  type: z.literal("delete_time_block"),
+  timeBlockQuery: z.string().trim().max(300),
+  taskQuery: z.string().trim().max(300).optional(),
+  dateHint: z.string().trim().max(120).optional(),
+  timeHint: z.string().trim().max(120).optional(),
+})
+
 export const upsertNoteActionSchema = z.object({
   type: z.literal("upsert_note"),
   title: z.string().trim().min(1).max(300),
@@ -125,6 +175,10 @@ export const aiActionSchema = z.discriminatedUnion("type", [
   scheduleTaskActionSchema,
   createRecurringScheduleActionSchema,
   bulkCreateDiscreteTasksActionSchema,
+  ensureTaskOccurrenceActionSchema,
+  bulkEnsureTaskOccurrencesActionSchema,
+  moveTimeBlockActionSchema,
+  deleteTimeBlockActionSchema,
   upsertNoteActionSchema,
   linkNoteToNoteActionSchema,
   captureToInboxActionSchema,
@@ -148,6 +202,10 @@ export type UpsertTaskAction = z.infer<typeof upsertTaskActionSchema>
 export type ScheduleTaskAction = z.infer<typeof scheduleTaskActionSchema>
 export type CreateRecurringScheduleAction = z.infer<typeof createRecurringScheduleActionSchema>
 export type BulkCreateDiscreteTasksAction = z.infer<typeof bulkCreateDiscreteTasksActionSchema>
+export type EnsureTaskOccurrenceAction = z.infer<typeof ensureTaskOccurrenceActionSchema>
+export type BulkEnsureTaskOccurrencesAction = z.infer<typeof bulkEnsureTaskOccurrencesActionSchema>
+export type MoveTimeBlockAction = z.infer<typeof moveTimeBlockActionSchema>
+export type DeleteTimeBlockAction = z.infer<typeof deleteTimeBlockActionSchema>
 export type UpsertNoteAction = z.infer<typeof upsertNoteActionSchema>
 export type LinkNoteToNoteAction = z.infer<typeof linkNoteToNoteActionSchema>
 export type ClearFutureTimeBlocksAction = z.infer<typeof clearFutureTimeBlocksActionSchema>
@@ -186,6 +244,17 @@ export type AiPlannerContext = {
     notes: Array<{ id: string; title: string }>
     tags: Array<{ id: string; name: string }>
   }>
+  upcomingTimeBlocks: Array<{
+    timeBlockId: string
+    taskId: string
+    taskTitle: string
+    subTaskTitle?: string | null
+    startAt: string
+    endAt: string
+    isAllDay: boolean
+    status?: string | null
+    priority?: string | null
+  }>
 }
 
 export type AiExecutionMutation =
@@ -193,6 +262,8 @@ export type AiExecutionMutation =
   | { type: "task_updated"; taskId: string; title: string; dueAt?: string | null; reminderAt?: string | null }
   | { type: "time_block_created"; taskId: string; taskTitle: string; blockId: string; startAt: string; endAt: string }
   | { type: "time_block_reused"; taskId: string; taskTitle: string; blockId: string; startAt: string; endAt: string }
+  | { type: "time_block_updated"; taskId: string; taskTitle: string; blockId: string; startAt: string; endAt: string }
+  | { type: "time_block_deleted"; taskTitle?: string; blockId?: string }
   | { type: "note_created"; noteId: string; title: string }
   | { type: "note_updated"; noteId: string; title: string }
   | { type: "note_linked"; fromNoteId: string; toNoteId: string; relationType: z.infer<typeof relationTypeSchema> }

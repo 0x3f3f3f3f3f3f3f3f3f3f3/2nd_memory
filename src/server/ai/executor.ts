@@ -4,9 +4,13 @@ import type {
   AiExecutionMutation,
   AiExecutionResult,
   AiIntentPlan,
+  BulkEnsureTaskOccurrencesAction,
   ClearFutureTimeBlocksAction,
   ClearTaskScheduleAction,
   DeleteTasksInScopeAction,
+  DeleteTimeBlockAction,
+  EnsureTaskOccurrenceAction,
+  MoveTimeBlockAction,
 } from "@/server/ai/contracts"
 import { normalizeTitleForMatch } from "@/server/ai/normalization"
 import {
@@ -28,7 +32,9 @@ import {
   createTask,
   createTimeBlock,
   deleteTasksByIds,
+  deleteTimeBlock,
   updateTask,
+  updateTimeBlock,
 } from "@/server/services/tasks-service"
 
 type TaskWriteResult = {
@@ -67,6 +73,8 @@ export type AiExecutionRepository = {
   createTask(userId: string, input: Parameters<typeof createTask>[1]): Promise<TaskWriteResult>
   updateTask(userId: string, id: string, input: Parameters<typeof updateTask>[2]): Promise<TaskWriteResult>
   createTimeBlock(userId: string, taskId: string, input: Parameters<typeof createTimeBlock>[2]): Promise<{ id: string; startAt: Date; endAt: Date; isAllDay: boolean; subTaskId?: string | null }>
+  updateTimeBlock(userId: string, id: string, input: Parameters<typeof updateTimeBlock>[2]): Promise<{ id: string; startAt: Date; endAt: Date; isAllDay: boolean; subTaskId?: string | null }>
+  deleteTimeBlock(userId: string, id: string): Promise<void>
   createNote(userId: string, input: Parameters<typeof createNote>[1]): Promise<NoteWriteResult>
   updateNote(userId: string, id: string, input: Parameters<typeof updateNote>[2]): Promise<NoteWriteResult>
   upsertNoteLink(userId: string, input: Parameters<typeof upsertNoteLink>[1]): Promise<Awaited<ReturnType<typeof upsertNoteLink>>>
@@ -176,6 +184,8 @@ export const productionAiExecutionRepository: AiExecutionRepository = {
   createTask,
   updateTask,
   createTimeBlock,
+  updateTimeBlock,
+  deleteTimeBlock,
   createNote,
   updateNote,
   upsertNoteLink,
@@ -266,6 +276,39 @@ function findNoteIdByQuery(state: ExecutionState, query: { title?: string | null
     if (fromCreated) return fromCreated
   }
   return resolveNoteCandidate(state.notes, { title: query.title ?? null, query: query.search ?? null })?.item.id ?? null
+}
+
+function resolveTimeBlockCandidate(state: ExecutionState, input: {
+  timeBlockQuery?: string | null
+  taskQuery?: string | null
+  dateHint?: string | null
+  timeHint?: string | null
+}) {
+  const taskCandidate = input.taskQuery
+    ? resolveTaskCandidate(state.tasks, { title: input.taskQuery, query: input.taskQuery })?.item
+    : null
+
+  const blocks = state.tasks.flatMap((task) =>
+    task.timeBlocks.map((block) => ({
+      task,
+      block,
+    })),
+  )
+
+  return blocks.find(({ task, block }) => {
+    if (taskCandidate && task.id !== taskCandidate.id) return false
+    const query = `${task.title} ${input.timeBlockQuery ?? ""} ${input.dateHint ?? ""} ${input.timeHint ?? ""}`
+    const normalizedQuery = normalizeTitleForMatch(query)
+    const normalizedTask = normalizeTitleForMatch(task.title)
+    if (normalizedQuery && !normalizedQuery.includes(normalizedTask) && !normalizedTask.includes(normalizedQuery)) {
+      if (!taskCandidate) return false
+    }
+    if (input.dateHint) {
+      const localDate = block.startAt.toISOString().slice(0, 10)
+      if (!input.dateHint.includes(localDate.slice(5)) && !input.dateHint.includes(localDate)) return false
+    }
+    return true
+  }) ?? null
 }
 
 async function executeUpsertTask(userId: string, action: Extract<AiAction, { type: "upsert_task" }>, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
@@ -378,6 +421,65 @@ async function executeScheduleTask(userId: string, action: Extract<AiAction, { t
   })
 }
 
+async function executeEnsureTaskOccurrence(userId: string, action: EnsureTaskOccurrenceAction, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
+  const taskId = await executeUpsertTask(userId, {
+    type: "upsert_task",
+    title: action.taskTitle,
+    description: action.taskDescriptionIfCreate,
+    status: action.status ?? "TODO",
+    priority: action.priority ?? "MEDIUM",
+    dueAt: action.dueAt ?? null,
+    reminderAt: action.reminderAt ?? null,
+    matchStrategy: action.createTaskIfMissing ? "normalized_title" : "search_query",
+    targetQuery: action.taskQuery ?? action.taskTitle,
+    tagNames: action.tagNames,
+  }, state, mutations, repo)
+
+  await executeScheduleTask(userId, {
+    type: "schedule_task",
+    taskTitle: action.taskTitle,
+    taskQuery: action.taskQuery,
+    createTaskIfMissing: false,
+    startAt: action.startAt,
+    endAt: action.endAt,
+    isAllDay: action.isAllDay ?? false,
+  }, state, mutations, repo)
+
+  return taskId
+}
+
+async function executeBulkEnsureTaskOccurrences(userId: string, action: BulkEnsureTaskOccurrencesAction, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
+  await executeUpsertTask(userId, {
+    type: "upsert_task",
+    title: action.taskTitle,
+    description: action.taskDescriptionIfCreate,
+    status: action.status ?? "TODO",
+    priority: action.priority ?? "MEDIUM",
+    matchStrategy: action.createTaskIfMissing ? "normalized_title" : "search_query",
+    targetQuery: action.taskQuery ?? action.taskTitle,
+    tagNames: action.tagNames,
+  }, state, mutations, repo)
+
+  for (const occurrence of action.occurrences) {
+    await executeEnsureTaskOccurrence(userId, {
+      type: "ensure_task_occurrence",
+      taskTitle: action.taskTitle,
+      taskQuery: action.taskQuery,
+      createTaskIfMissing: false,
+      taskDescriptionIfCreate: action.taskDescriptionIfCreate,
+      dueAt: occurrence.dueAt ?? null,
+      reminderAt: occurrence.reminderAt ?? null,
+      startAt: occurrence.startAt!,
+      endAt: occurrence.endAt!,
+      isAllDay: occurrence.isAllDay ?? false,
+      occurrenceKind: action.occurrenceKind,
+      priority: action.priority,
+      status: action.status,
+      tagNames: action.tagNames,
+    }, state, mutations, repo)
+  }
+}
+
 async function executeRecurringSchedule(userId: string, action: Extract<AiAction, { type: "create_recurring_schedule" }>, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
   await executeUpsertTask(userId, {
     type: "upsert_task",
@@ -485,6 +587,45 @@ async function executeLinkNoteToNote(userId: string, action: Extract<AiAction, {
   mutations.push({ type: "note_linked", fromNoteId, toNoteId, relationType: action.relationType })
 }
 
+async function executeMoveTimeBlock(userId: string, action: MoveTimeBlockAction, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
+  const resolved = resolveTimeBlockCandidate(state, {
+    timeBlockQuery: action.timeBlockQuery,
+    taskQuery: action.taskQuery,
+    dateHint: action.fromDateHint,
+    timeHint: action.fromTimeHint,
+  })
+  if (!resolved) return
+  const updated = await repo.updateTimeBlock(userId, resolved.block.id, {
+    startAt: action.newStartAt,
+    endAt: action.newEndAt,
+    isAllDay: action.isAllDay,
+  })
+  resolved.block.startAt = updated.startAt
+  resolved.block.endAt = updated.endAt
+  resolved.block.isAllDay = updated.isAllDay
+  mutations.push({
+    type: "time_block_updated",
+    taskId: resolved.task.id,
+    taskTitle: resolved.task.title,
+    blockId: updated.id,
+    startAt: updated.startAt.toISOString(),
+    endAt: updated.endAt.toISOString(),
+  })
+}
+
+async function executeDeleteTimeBlock(userId: string, action: DeleteTimeBlockAction, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
+  const resolved = resolveTimeBlockCandidate(state, {
+    timeBlockQuery: action.timeBlockQuery,
+    taskQuery: action.taskQuery,
+    dateHint: action.dateHint,
+    timeHint: action.timeHint,
+  })
+  if (!resolved) return
+  await repo.deleteTimeBlock(userId, resolved.block.id)
+  resolved.task.timeBlocks = resolved.task.timeBlocks.filter((block) => block.id != resolved.block.id)
+  mutations.push({ type: "time_block_deleted", taskTitle: resolved.task.title, blockId: resolved.block.id })
+}
+
 async function executeClearFutureTimeBlocks(userId: string, action: ClearFutureTimeBlocksAction, state: ExecutionState, mutations: AiExecutionMutation[], repo: AiExecutionRepository) {
   if (action.scope === "matched_task") {
     const task = resolveTaskCandidate(state.tasks, {
@@ -568,6 +709,18 @@ export async function executeAiIntentPlan(input: {
         break
       case "bulk_create_discrete_tasks":
         await executeBulkDiscreteTasks(input.userId, action, state, mutations, repository)
+        break
+      case "ensure_task_occurrence":
+        await executeEnsureTaskOccurrence(input.userId, action, state, mutations, repository)
+        break
+      case "bulk_ensure_task_occurrences":
+        await executeBulkEnsureTaskOccurrences(input.userId, action, state, mutations, repository)
+        break
+      case "move_time_block":
+        await executeMoveTimeBlock(input.userId, action, state, mutations, repository)
+        break
+      case "delete_time_block":
+        await executeDeleteTimeBlock(input.userId, action, state, mutations, repository)
         break
       case "upsert_note":
         await executeUpsertNote(input.userId, action, state, mutations, repository)

@@ -154,7 +154,7 @@ struct TimelineScreen: View {
                 }
             }
         }
-        .task {
+        .task(id: environment.aiRefreshCenter.timelineRevision) {
             await viewModel.load(using: environment.apiClient)
         }
         .onChange(of: viewModel.mode) { _, _ in

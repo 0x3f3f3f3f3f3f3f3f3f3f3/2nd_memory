@@ -198,6 +198,22 @@ struct EmptySuccessDTO: Decodable {
     let success: Bool
 }
 
+enum AIRefreshFeature: String, Decodable, Hashable {
+    case tasks
+    case timeline
+    case notes
+    case inbox
+}
+
+struct AIStreamEvent: Decodable {
+    let type: String
+    let delta: String?
+    let mutationKind: String?
+    let features: [AIRefreshFeature]?
+    let summary: String?
+    let message: String?
+}
+
 enum AppLanguage: String, Codable, CaseIterable, Hashable, Identifiable {
     case english = "en"
     case chineseSimplified = "zh-Hans"

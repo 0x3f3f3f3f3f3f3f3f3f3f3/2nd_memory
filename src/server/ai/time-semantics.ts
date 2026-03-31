@@ -153,7 +153,7 @@ export function parseDurationMinutes(text: string, fallbackMinutes = 30) {
 }
 
 export function isDeadlineIntent(text: string) {
-  return /(截止|最晚|之前|前\b|deadline|due|by\b|before\b|提交前|交报告|交作业|交|submit)/iu.test(text)
+  return /(截止|最晚|之前|deadline|due\b|by\b|before\b|提交前|前交|前提交|before submitting)/iu.test(text)
 }
 
 export function isReminderIntent(text: string) {
@@ -162,6 +162,30 @@ export function isReminderIntent(text: string) {
 
 export function isScheduleIntent(text: string) {
   return /(安排|schedule|预留|留出|写.*半小时|做.*半小时|\d{1,2}\s*点.*(半小时|\d+\s*分钟|\d+\s*小时)|\d{1,2}[:：]\d{2}.*(半小时|\d+\s*分钟|\d+\s*小时)|\b\d{1,2}\s*(am|pm)\b.*(\d+\s*(分钟|hours?|mins?|min|小时)|半小时)|\b(write|do|work on|run)\b.*\b\d{1,2}\s*(am|pm)\b)/iu.test(text)
+}
+
+export function hasExplicitExecutionTime(text: string) {
+  return /(\b\d{1,2}[:：]\d{2}\b|\b\d{1,2}\s*(am|pm)\b|\d{1,2}\s*点(?:半|\d{1,2})?)/iu.test(text)
+}
+
+export function hasCoarseExecutionSlot(text: string) {
+  return /(早上|上午|中午|下午|晚上|傍晚|今晚|明早|明晚|morning|noon|afternoon|evening|tonight)/iu.test(text)
+}
+
+export function isRescheduleIntent(text: string) {
+  return /(改到|挪到|移到|改成|reschedule|move to|shift to)/iu.test(text)
+}
+
+export function isCancelOccurrenceIntent(text: string) {
+  return /(取消|删掉这段|删掉这次|cancel)/iu.test(text)
+}
+
+export function isWorkSessionVerb(text: string) {
+  return /(写|写报告|写论文|做预算|做ppt|study|practice|work on|整理|复习|背|练|看论文|读论文|跑步)/iu.test(text)
+}
+
+export function isDiscreteActionVerb(text: string) {
+  return /(吃药|吃维生素|打电话|缴费|交水电费|去医院|复诊|开会|拿快递|买猫粮|付费|给妈妈打电话|take medicine|call|pay|go to the hospital|meeting)/iu.test(text)
 }
 
 export function isExplicitInboxIntent(text: string) {

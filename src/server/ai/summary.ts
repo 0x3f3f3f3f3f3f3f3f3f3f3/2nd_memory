@@ -98,6 +98,22 @@ export function buildAiSummary(input: {
   }
 
   const primary = input.mutations[0]
+  const firstTaskMutation = input.mutations.find(
+    (mutation): mutation is Extract<AiExecutionMutation, { type: "task_created" | "task_updated" }> =>
+      mutation.type === "task_created" || mutation.type === "task_updated",
+  )
+  const firstBlockMutation = input.mutations.find(
+    (mutation): mutation is Extract<AiExecutionMutation, { type: "time_block_created" }> =>
+      mutation.type === "time_block_created",
+  )
+
+  if (firstTaskMutation && firstBlockMutation && firstTaskMutation.title === firstBlockMutation.taskTitle) {
+    const base = summarizeTaskMutation(firstTaskMutation, locale, timeZone).replace(/[。.]$/, "")
+    return locale === "en"
+      ? `${base}, and scheduled it for ${formatTimeRange(firstBlockMutation.startAt, firstBlockMutation.endAt, locale, timeZone)}.`
+      : `${base}，并已安排到 ${formatTimeRange(firstBlockMutation.startAt, firstBlockMutation.endAt, locale, timeZone)}。`
+  }
+
   switch (primary.type) {
     case "task_created":
     case "task_updated":
@@ -110,6 +126,14 @@ export function buildAiSummary(input: {
       return locale === "en"
         ? `The schedule for "${primary.taskTitle}" already exists at ${formatTimeRange(primary.startAt, primary.endAt, locale, timeZone)}.`
         : `「${primary.taskTitle}」在 ${formatTimeRange(primary.startAt, primary.endAt, locale, timeZone)} 的安排已存在。`
+    case "time_block_updated":
+      return locale === "en"
+        ? `Moved "${primary.taskTitle}" to ${formatTimeRange(primary.startAt, primary.endAt, locale, timeZone)}.`
+        : `已将「${primary.taskTitle}」调整到 ${formatTimeRange(primary.startAt, primary.endAt, locale, timeZone)}。`
+    case "time_block_deleted":
+      return locale === "en"
+        ? `Canceled the planned block${primary.taskTitle ? ` for "${primary.taskTitle}"` : ""}.`
+        : `${primary.taskTitle ? `已取消「${primary.taskTitle}」的对应安排。` : "已取消对应安排。"}`
     case "note_created":
       return locale === "en" ? `Saved note "${primary.title}".` : `已保存笔记「${primary.title}」。`
     case "note_updated":

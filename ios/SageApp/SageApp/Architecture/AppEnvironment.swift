@@ -113,12 +113,28 @@ final class AuthStore {
 
 @Observable
 final class AppEnvironment {
+    @Observable
+    final class AIRefreshCenter {
+        var tasksRevision = 0
+        var timelineRevision = 0
+        var notesRevision = 0
+        var inboxRevision = 0
+
+        func apply(features: [AIRefreshFeature]) {
+            if features.contains(.tasks) { tasksRevision += 1 }
+            if features.contains(.timeline) { timelineRevision += 1 }
+            if features.contains(.notes) { notesRevision += 1 }
+            if features.contains(.inbox) { inboxRevision += 1 }
+        }
+    }
+
     let settings: AppSettingsStore
     let keychain: KeychainStore
     let apiClient: APIClient
     let notificationScheduler: NotificationScheduler
     let authStore: AuthStore
     let draftStore: DraftStore
+    let aiRefreshCenter: AIRefreshCenter
 
     init() {
         settings = AppSettingsStore()
@@ -126,6 +142,7 @@ final class AppEnvironment {
         apiClient = APIClient(settings: settings)
         notificationScheduler = NotificationScheduler()
         draftStore = DraftStore()
+        aiRefreshCenter = AIRefreshCenter()
         let authStore = AuthStore(apiClient: apiClient, keychain: keychain, settings: settings)
         self.authStore = authStore
         apiClient.tokenProvider = { [weak authStore] in authStore?.token }

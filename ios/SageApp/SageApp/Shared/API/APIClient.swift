@@ -106,6 +106,60 @@ final class APIClient {
         }
     }
 
+    func streamEvents(path: String, body: Encodable) -> AsyncThrowingStream<AIStreamEvent, Error> {
+        let urlRequest: URLRequest
+        do {
+            let bodyData = try encoder.encode(AnyEncodable(body))
+            urlRequest = try makeRequest(path: path, method: "POST", body: bodyData)
+        } catch {
+            return AsyncThrowingStream { continuation in
+                continuation.finish(throwing: error)
+            }
+        }
+        let session = self.session
+
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    let (bytes, response) = try await session.bytes(for: urlRequest)
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        throw APIErrorPayload(code: "invalid_response", message: "Invalid response")
+                    }
+                    guard (200..<300).contains(httpResponse.statusCode) else {
+                        throw APIErrorPayload(
+                            code: "http_\(httpResponse.statusCode)",
+                            message: HTTPURLResponse.localizedString(forStatusCode: httpResponse.statusCode)
+                        )
+                    }
+
+                    var iterator = bytes.makeAsyncIterator()
+                    var buffer = ""
+                    while let byte = try await iterator.next() {
+                        if let scalar = UnicodeScalar(byte) {
+                            buffer.unicodeScalars.append(scalar)
+                        }
+                        while let newlineIndex = buffer.firstIndex(of: "\n") {
+                            let line = String(buffer[..<newlineIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+                            buffer = String(buffer[buffer.index(after: newlineIndex)...])
+                            guard !line.isEmpty else { continue }
+                            let data = Data(line.utf8)
+                            let event = try self.decoder.decode(AIStreamEvent.self, from: data)
+                            continuation.yield(event)
+                        }
+                    }
+
+                    if !buffer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        let event = try self.decoder.decode(AIStreamEvent.self, from: Data(buffer.utf8))
+                        continuation.yield(event)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
     private func validate(response: URLResponse, data: Data) throws {
         guard let httpResponse = response as? HTTPURLResponse else { return }
         guard (200..<300).contains(httpResponse.statusCode) else {
